@@ -18,7 +18,7 @@ func RunBashEcho(ctx context.Context) (string, error) {
 		return runShell(ctx, "sh", []string{"-lc", "echo 'Bash echo'"})
 	}
 	if runtime.GOOS == "windows" {
-		return "", fmt.Errorf("bash not found. Install Git Bash (Git for Windows) or enable WSL.")
+		return "", fmt.Errorf("bash not found. Install Git Bash (Git for Windows) or enable WSL")
 	}
 	return "", fmt.Errorf("neither bash nor sh found in PATH")
 }
