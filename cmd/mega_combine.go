@@ -251,7 +251,7 @@ func generateFFmpegCommand(selectedFiles []string) (string, error) {
 	cmd.WriteString("  -map \"[outv]\" -map \"[outa]\" \\\n")
 	cmd.WriteString("  -c:v prores_ks -profile:v 1 -pix_fmt yuv422p10le -threads 0 \\\n")
 	cmd.WriteString("  -c:a pcm_s16le -ar 48000 -ac 2 \\\n")
-	cmd.WriteString("  \"Resolve_iPad_Stitch_ProResLT.mov\"")
+	cmd.WriteString("  \"out.mov\"")
 
 	// Prepend "ffmpeg" to the command
 	fullCmd := "ffmpeg" + cmd.String()
