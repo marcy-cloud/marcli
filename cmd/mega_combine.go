@@ -234,12 +234,24 @@ func generateFFmpegCommand(selectedFiles []string) (string, error) {
 		cmd.WriteString(fmt.Sprintf(" -i \"%s\"", absFilePath))
 	}
 
-	// Build concat filter complex
-	// Format: [0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1[outv][outa]
+	// Build concat filter complex with timestamp normalization (robust version)
+	// Normalizes timestamps to handle VFR/mismatched starts safely
+	// Format: [0:v]setpts=PTS-STARTPTS[v0];[0:a]asetpts=PTS-STARTPTS[a0];...concat=n=N:v=1:a=1[outv][outa]
 	numFiles := len(selectedFiles)
 	var filterComplex strings.Builder
+	
+	// Add timestamp normalization for each input
 	for i := 0; i < numFiles; i++ {
-		filterComplex.WriteString(fmt.Sprintf("[%d:v][%d:a]", i, i))
+		if i > 0 {
+			filterComplex.WriteString(";")
+		}
+		filterComplex.WriteString(fmt.Sprintf("[%d:v]setpts=PTS-STARTPTS[v%d];[%d:a]asetpts=PTS-STARTPTS[a%d]", i, i, i, i))
+	}
+	
+	// Add concat with normalized streams
+	filterComplex.WriteString(";")
+	for i := 0; i < numFiles; i++ {
+		filterComplex.WriteString(fmt.Sprintf("[v%d][a%d]", i, i))
 	}
 	filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=1:a=1[outv][outa]", numFiles))
 
