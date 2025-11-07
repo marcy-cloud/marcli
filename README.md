@@ -6,7 +6,9 @@ Hey there! ✨ Welcome to **marcli** - the cutest CLI tool for Marcy.cloud! 🎀
 
 This is a super cute Terminal UI (a cutiepie TUI if you will *wink*) app that represents my personal CLI knowledge, built from the ground up with lots of love! 💖 It's got everything you need - a fancy TUI for when you want to explore, and direct CLI commands for when you're being that hacker girl from the 80's on the terminal! 💪
 
-> **Note** 💅: This style of working (name a CLI after myself as an internal marketing tool) was originally developed by me, Marcy, in my time at RealEyes Media while they were working for NBC Sports! ARE YOU IMPRESSED? While none of the actual code from the RealEyes Medai MarCLI there is present in this repo (we've come a long way, baby! ✨), the philosophy and approach live on here with lots of love! 💖
+> **Note** 💅: This style of working (naming a CLI after myself as an internal marketing tool) was originally developed by me, Marcy, during my time at RealEyes Media while working for NBC Sports! ARE YOU IMPRESSED? While none of the actual code from the RealEyes Media MarCLI is present in this repo (we've come a long way, baby! ✨), the philosophy and approach live on here with lots of love! 💖  
+>  
+> And of course, **special thank you to Josh Sprow** for *all* the coding help, all the time — you make everything better! 💖
 
 ## What's Inside 🎀
 
