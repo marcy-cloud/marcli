@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -15,6 +16,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const listHeight = 20
+
+var (
+	megaTitleStyle        = lipgloss.NewStyle().MarginLeft(2)
+	megaItemStyle         = lipgloss.NewStyle().PaddingLeft(4)
+	megaSelectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
+	megaPaginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
+	megaHelpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
+)
+
 // videoFileItem represents a video file in the list
 type videoFileItem struct {
 	title    string
@@ -23,25 +34,39 @@ type videoFileItem struct {
 	selected bool
 }
 
-func (i videoFileItem) Title() string {
-	checkmark := " "
-	if i.selected {
-		checkmark = "✓"
-	}
-	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")).
-		Render(checkmark + " " + i.title)
-}
-
-func (i videoFileItem) Description() string {
-	return lipgloss.NewStyle().
-		Faint(true).
-		Foreground(lipgloss.Color("241")).
-		Render(i.modTime.Format("2006-01-02 15:04:05"))
-}
-
 func (i videoFileItem) FilterValue() string {
 	return i.title
+}
+
+// itemDelegate handles rendering of list items
+type itemDelegate struct{}
+
+func (d itemDelegate) Height() int                             { return 1 }
+func (d itemDelegate) Spacing() int                            { return 0 }
+func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	item, ok := listItem.(videoFileItem)
+	if !ok {
+		return
+	}
+
+	// Format: [✓] filename (date)
+	checkmark := " "
+	if item.selected {
+		checkmark = "✓"
+	}
+	
+	dateStr := item.modTime.Format("2006-01-02 15:04")
+	str := fmt.Sprintf("[%s] %s  %s", checkmark, item.title, dateStr)
+
+	fn := megaItemStyle.Render
+	if index == m.Index() {
+		fn = func(s ...string) string {
+			return megaSelectedItemStyle.Render("> " + strings.Join(s, " "))
+		}
+	}
+
+	fmt.Fprint(w, fn(str))
 }
 
 // megaCombineModel manages the state of the mega-combine TUI
@@ -70,15 +95,15 @@ func initialMegaCombineModel() (megaCombineModel, error) {
 		listItems[i] = items[i]
 	}
 
-	// Create list with simple delegate - use default size that will be updated by WindowSizeMsg
-	l := list.New(listItems, list.NewDefaultDelegate(), 80, 20)
+	// Create list with custom delegate matching list-simple style
+	const defaultWidth = 80
+	l := list.New(listItems, itemDelegate{}, defaultWidth, listHeight)
 	l.Title = "Select Video Files (Space: toggle, Enter: confirm, Ctrl+C: quit)"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
-	l.Styles.Title = lipgloss.NewStyle().
-		MarginLeft(2).
-		Foreground(lipgloss.Color("212")).
-		Bold(true)
+	l.Styles.Title = megaTitleStyle
+	l.Styles.PaginationStyle = megaPaginationStyle
+	l.Styles.HelpStyle = megaHelpStyle
 
 	selected := make(map[int]struct{})
 
@@ -133,7 +158,6 @@ func (m *megaCombineModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle window size
 	if winSizeMsg, ok := msg.(tea.WindowSizeMsg); ok {
 		m.list.SetWidth(winSizeMsg.Width)
-		m.list.SetHeight(winSizeMsg.Height - 2)
 		m.list, cmd = m.list.Update(msg)
 		return m, cmd
 	}
