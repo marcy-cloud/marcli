@@ -4,7 +4,15 @@ A super cute command-line tool for selecting and combining multiple video files 
 
 The command uses different ffmpeg settings depending on the mode - we're so flexible! ✨
 
-### Default Mode (GPU-Accelerated) 🎨
+### Default Mode (Fast Concatenation) ⚡
+
+**Method**: Concat demuxer with `-c copy` (no re-encoding, just concatenate) - so fast! 💪
+
+**Output**: `.mkv` files (preserves original codec/quality)
+
+**When to use**: Quick sharing, when you just need files combined without any processing - perfect for speed! ✨
+
+### `--slowbutsmall` Mode (GPU-Accelerated H.265) 🎨
 
 **Video Encoding:**
 - **Codec**: `hevc_nvenc` (NVIDIA GPU-accelerated H.265/HEVC) - so fast! 💪
@@ -23,6 +31,8 @@ The command uses different ffmpeg settings depending on the mode - we're so flex
 
 **Output**: `.mp4` files with `+faststart` flag (much smaller than ProRes and ready for web streaming! ✨)
 
+**When to use**: When you want smaller file sizes and don't mind waiting for encoding - so efficient! 💖
+
 ### `--waytoobig` Mode (ProRes) 💖
 
 Use this flag when you need maximum quality for DaVinci Resolve on iPad and don't mind huge file sizes!
@@ -40,15 +50,20 @@ Use this flag when you need maximum quality for DaVinci Resolve on iPad and don'
 
 **Output**: `.mov` files (way too big but no re-encoding needed in DaVinci Resolve!)
 
+**When to use**: Maximum quality for DaVinci Resolve on iPad - best editing experience! 🎨
+
 ## Overview 🎀
 
-`mega-combine` provides an interactive TUI (Terminal User Interface) to select video files from the current directory, then combines them into a single video file - so organized! 💖 By default, it uses GPU-accelerated H.265 encoding for efficient, high-quality output. Use the `--waytoobig` flag for ProRes encoding when you need maximum quality for DaVinci Resolve on iPad (but don't mind huge file sizes!). We're so flexible! ✨
+`mega-combine` provides an interactive TUI (Terminal User Interface) to select video files from the current directory, then combines them into a single video file - so organized! 💖 By default, it uses fast concatenation (no re-encoding) for quick sharing. Use `--slowbutsmall` for GPU-accelerated H.265 encoding (smaller files), or `--waytoobig` for ProRes encoding when you need maximum quality for DaVinci Resolve on iPad. We're so flexible! ✨
 
 ## Usage 💅
 
 ```bash
-# Interactive mode - select files and combine (default: GPU-accelerated H.265) ✨
+# Interactive mode - select files and combine (default: fast concatenation, no re-encoding) ✨
 marcli mega-combine
+
+# Use GPU-accelerated H.265 encoding (smaller files than waytoobig, but takes time)
+marcli mega-combine --slowbutsmall
 
 # Use ProRes encoding (way too big but high quality for DaVinci Resolve)
 marcli mega-combine --waytoobig
@@ -61,17 +76,24 @@ marcli mega-combine --out myvideo
 
 # Combine options - we're so flexible! 💕
 marcli mega-combine --test --out myvideo
+marcli mega-combine --slowbutsmall --out myvideo.mp4
 marcli mega-combine --waytoobig --out myvideo.mov
 ```
 
 ## Features 🎀
 
 - **Interactive file selection**: Browse and multi-select video files ordered by modification time - so organized! 💖
-- **Automatic file extension**: If you don't specify an extension, `.mp4` is added by default (or `.mov` with `--waytoobig`) - we're so helpful! ✨
+- **Automatic file extension**: If you don't specify an extension, `.mkv` is added by default (or `.mp4` with `--slowbutsmall`, `.mov` with `--waytoobig`) - we're so helpful! ✨
 - **Preview mode**: Use `--test` to see the exact ffmpeg command before running - safety first! 💅
-- **Robust concatenation**: Uses timestamp normalization to handle variable frame rates and mismatched start times - so reliable! 🎨
+- **Multiple modes**: Fast concatenation (default), GPU-accelerated encoding (`--slowbutsmall`), or ProRes (`--waytoobig`) - so flexible! 🎨
 
-### Concatenation Method
+### Concatenation Methods
+
+**Default Mode (Fast):**
+- Uses concat demuxer with `-c copy` - no re-encoding, just concatenates files as-is
+- Super fast, no quality loss, preserves original codec
+
+**Encoding Modes (`--slowbutsmall` or `--waytoobig`):**
 The command uses a robust concatenation approach with timestamp normalization:
 
 1. **Timestamp Normalization**: Each input stream is normalized using `setpts=PTS-STARTPTS` for video and `asetpts=PTS-STARTPTS` for audio
@@ -87,7 +109,13 @@ The command uses a robust concatenation approach with timestamp normalization:
 
 ### Why These Settings? 💕
 
-**Default Mode (NVENC H.265):**
+**Default Mode (Fast Concatenation):**
+- **No Re-encoding**: Just concatenates files as-is - super fast! ⚡
+- **No Quality Loss**: Preserves original codec and quality - perfect! ✨
+- **Small File Size**: No encoding overhead - just the sum of input files! 💖
+- **Use when**: You need files combined quickly and don't need format conversion! 🎀
+
+**`--slowbutsmall` Mode (NVENC H.265):**
 - **GPU Acceleration**: Uses your NVIDIA GPU (like the RTX 5090!) for super fast encoding - so efficient! 💪
 - **H.265/HEVC**: Modern codec with excellent compression - much smaller files than ProRes! ✨
 - **Constant Quality (CQ 22)**: Uses quality-based encoding instead of fixed bitrate - automatically adjusts bitrate to maintain quality while keeping files small - perfect balance! 🎨

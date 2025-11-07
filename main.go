@@ -56,6 +56,8 @@ func main() {
 					i++ // Skip the next argument since we consumed it
 				} else if args[i] == "--waytoobig" {
 					ctx = context.WithValue(ctx, "megaCombineWayTooBig", true)
+				} else if args[i] == "--slowbutsmall" {
+					ctx = context.WithValue(ctx, "megaCombineSlowButSmall", true)
 				}
 			}
 		}

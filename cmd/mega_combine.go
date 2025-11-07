@@ -205,23 +205,42 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 			return "No files selected.", nil
 		}
 
-		// Get output filename from context, default to "out.mov" or "out.mp4"
+		// Determine encoding mode
 		wayTooBig := ctx.Value("megaCombineWayTooBig") == true
-		outputFile := "out.mp4"
+		slowButSmall := ctx.Value("megaCombineSlowButSmall") == true
+		
+		// Default mode: fast concatenation (no re-encoding)
+		mode := "fast"
 		if wayTooBig {
-			outputFile = "out.mov"
+			mode = "prores"
+		} else if slowButSmall {
+			mode = "nvenc"
 		}
+
+		// Get output filename from context
+		outputFile := "out.mkv" // Default for fast concat
+		if mode == "prores" {
+			outputFile = "out.mov"
+		} else if mode == "nvenc" {
+			outputFile = "out.mp4"
+		}
+		
 		if outFile := ctx.Value("megaCombineOutput"); outFile != nil {
 			if outFileStr, ok := outFile.(string); ok && outFileStr != "" {
 				outputFile = outFileStr
 				// Add extension if not provided
-				if wayTooBig {
+				if mode == "prores" {
 					if !strings.HasSuffix(strings.ToLower(outputFile), ".mov") {
 						outputFile = outputFile + ".mov"
 					}
-				} else {
+				} else if mode == "nvenc" {
 					if !strings.HasSuffix(strings.ToLower(outputFile), ".mp4") {
 						outputFile = outputFile + ".mp4"
+					}
+				} else {
+					// Fast mode - keep original extension or use .mkv
+					if !strings.Contains(filepath.Ext(outputFile), ".") {
+						outputFile = outputFile + ".mkv"
 					}
 				}
 			}
@@ -229,7 +248,7 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 
 		// In test mode, show the ffmpeg command that would be run
 		if testMode {
-			cmd, err := generateFFmpegCommand(m.selectedFiles, outputFile, wayTooBig)
+			cmd, err := generateFFmpegCommand(m.selectedFiles, outputFile, mode)
 			if err != nil {
 				return "", err
 			}
@@ -237,71 +256,89 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 		}
 
 		// Main mode - actually run the ffmpeg command
-		return runFFmpegCommand(m.selectedFiles, outputFile, wayTooBig)
+		return runFFmpegCommand(m.selectedFiles, outputFile, mode)
 	}
 
 	return "Video file selection completed. Check logs for selected files.", nil
 }
 
-// generateFFmpegCommand creates an ffmpeg command using the selected files without a filelist
-func generateFFmpegCommand(selectedFiles []string, outputFile string, wayTooBig bool) (string, error) {
+// generateFFmpegCommand creates an ffmpeg command using the selected files
+// mode can be: "fast" (concat demuxer, no re-encoding), "nvenc" (H.265 encoding), or "prores" (ProRes encoding)
+func generateFFmpegCommand(selectedFiles []string, outputFile string, mode string) (string, error) {
 	if len(selectedFiles) == 0 {
 		return "", fmt.Errorf("no files selected")
 	}
 
 	var cmd strings.Builder
 
-	// Add all input files with -i flag
-	for _, file := range selectedFiles {
-		// Get absolute path for each file to ensure ffmpeg can find them
-		absFilePath, err := filepath.Abs(file)
-		if err != nil {
-			return "", fmt.Errorf("failed to get absolute path for %s: %w", file, err)
+	if mode == "fast" {
+		// Fast mode: Use concat demuxer (no re-encoding, just concatenate)
+		cmd.WriteString(" -f concat -safe 0 -i filelist.txt")
+		cmd.WriteString(fmt.Sprintf(" -c copy \"%s\"", outputFile))
+		cmd.WriteString("\n\n# Note: A temporary filelist.txt will be created with:")
+		for i, file := range selectedFiles {
+			absFilePath, err := filepath.Abs(file)
+			if err == nil {
+				cmd.WriteString(fmt.Sprintf("\n#   file '%s'", absFilePath))
+				if i < len(selectedFiles)-1 {
+					cmd.WriteString("")
+				}
+			}
 		}
-		cmd.WriteString(fmt.Sprintf(" -i \"%s\"", absFilePath))
-	}
-
-	// Build concat filter complex with timestamp normalization (robust version)
-	// Normalizes timestamps to handle VFR/mismatched starts safely
-	// Format: [0:v]setpts=PTS-STARTPTS[v0];[0:a]asetpts=PTS-STARTPTS[a0];...concat=n=N:v=1:a=1[outv][outa]
-	numFiles := len(selectedFiles)
-	var filterComplex strings.Builder
-
-	// Add timestamp normalization for each input
-	for i := 0; i < numFiles; i++ {
-		if i > 0 {
-			filterComplex.WriteString(";")
-		}
-		filterComplex.WriteString(fmt.Sprintf("[%d:v]setpts=PTS-STARTPTS[v%d];[%d:a]asetpts=PTS-STARTPTS[a%d]", i, i, i, i))
-	}
-
-	// Add concat with normalized streams
-	filterComplex.WriteString(";")
-	for i := 0; i < numFiles; i++ {
-		filterComplex.WriteString(fmt.Sprintf("[v%d][a%d]", i, i))
-	}
-	filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=1:a=1[outv][outa]", numFiles))
-
-	// Generate the complete ffmpeg command
-	cmd.WriteString(" \\\n")
-	cmd.WriteString("  -filter_complex \"")
-	cmd.WriteString(filterComplex.String())
-	cmd.WriteString("\" \\\n")
-	cmd.WriteString("  -map \"[outv]\" -map \"[outa]\" \\\n")
-
-	if wayTooBig {
-		// ProRes LT - way too big but high quality for DaVinci Resolve
-		cmd.WriteString("  -c:v prores_ks -profile:v 1 -pix_fmt yuv422p10le -threads 0 \\\n")
-		cmd.WriteString("  -c:a pcm_s16le -ar 48000 -ac 2 \\\n")
 	} else {
-		// Default: NVENC H.265 - GPU accelerated, efficient encoding
-		cmd.WriteString("  -c:v hevc_nvenc -preset p6 -tune hq -rc vbr_hq -cq 22 -b:v 0 -maxrate 0 \\\n")
-		cmd.WriteString("  -pix_fmt p010le -profile:v main10 \\\n")
-		cmd.WriteString("  -c:a aac -b:a 160k -ar 48000 -ac 2 \\\n")
-		cmd.WriteString("  -movflags +faststart \\\n")
-	}
+		// Encoding modes: Use filter_complex with timestamp normalization
+		// Add all input files with -i flag
+		for _, file := range selectedFiles {
+			// Get absolute path for each file to ensure ffmpeg can find them
+			absFilePath, err := filepath.Abs(file)
+			if err != nil {
+				return "", fmt.Errorf("failed to get absolute path for %s: %w", file, err)
+			}
+			cmd.WriteString(fmt.Sprintf(" -i \"%s\"", absFilePath))
+		}
 
-	cmd.WriteString(fmt.Sprintf("  \"%s\"", outputFile))
+		// Build concat filter complex with timestamp normalization (robust version)
+		// Normalizes timestamps to handle VFR/mismatched starts safely
+		// Format: [0:v]setpts=PTS-STARTPTS[v0];[0:a]asetpts=PTS-STARTPTS[a0];...concat=n=N:v=1:a=1[outv][outa]
+		numFiles := len(selectedFiles)
+		var filterComplex strings.Builder
+
+		// Add timestamp normalization for each input
+		for i := 0; i < numFiles; i++ {
+			if i > 0 {
+				filterComplex.WriteString(";")
+			}
+			filterComplex.WriteString(fmt.Sprintf("[%d:v]setpts=PTS-STARTPTS[v%d];[%d:a]asetpts=PTS-STARTPTS[a%d]", i, i, i, i))
+		}
+
+		// Add concat with normalized streams
+		filterComplex.WriteString(";")
+		for i := 0; i < numFiles; i++ {
+			filterComplex.WriteString(fmt.Sprintf("[v%d][a%d]", i, i))
+		}
+		filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=1:a=1[outv][outa]", numFiles))
+
+		// Generate the complete ffmpeg command
+		cmd.WriteString(" \\\n")
+		cmd.WriteString("  -filter_complex \"")
+		cmd.WriteString(filterComplex.String())
+		cmd.WriteString("\" \\\n")
+		cmd.WriteString("  -map \"[outv]\" -map \"[outa]\" \\\n")
+		
+		if mode == "prores" {
+			// ProRes LT - way too big but high quality for DaVinci Resolve
+			cmd.WriteString("  -c:v prores_ks -profile:v 1 -pix_fmt yuv422p10le -threads 0 \\\n")
+			cmd.WriteString("  -c:a pcm_s16le -ar 48000 -ac 2 \\\n")
+		} else if mode == "nvenc" {
+			// NVENC H.265 - GPU accelerated, efficient encoding
+			cmd.WriteString("  -c:v hevc_nvenc -preset p6 -tune hq -rc vbr_hq -cq 22 -b:v 0 -maxrate 0 \\\n")
+			cmd.WriteString("  -pix_fmt p010le -profile:v main10 \\\n")
+			cmd.WriteString("  -c:a aac -b:a 160k -ar 48000 -ac 2 \\\n")
+			cmd.WriteString("  -movflags +faststart \\\n")
+		}
+		
+		cmd.WriteString(fmt.Sprintf("  \"%s\"", outputFile))
+	}
 
 	// Prepend "ffmpeg" to the command
 	fullCmd := "ffmpeg" + cmd.String()
@@ -309,7 +346,8 @@ func generateFFmpegCommand(selectedFiles []string, outputFile string, wayTooBig 
 }
 
 // runFFmpegCommand executes the ffmpeg command with the selected files
-func runFFmpegCommand(selectedFiles []string, outputFile string, wayTooBig bool) (string, error) {
+// mode can be: "fast" (concat demuxer, no re-encoding), "nvenc" (H.265 encoding), or "prores" (ProRes encoding)
+func runFFmpegCommand(selectedFiles []string, outputFile string, mode string) (string, error) {
 	if len(selectedFiles) == 0 {
 		return "", fmt.Errorf("no files selected")
 	}
@@ -317,68 +355,100 @@ func runFFmpegCommand(selectedFiles []string, outputFile string, wayTooBig bool)
 	// Build the ffmpeg command arguments
 	var args []string
 
-	// Add all input files with -i flag
-	for _, file := range selectedFiles {
-		// Get absolute path for each file to ensure ffmpeg can find them
-		absFilePath, err := filepath.Abs(file)
+	if mode == "fast" {
+		// Fast mode: Use concat demuxer (no re-encoding, just concatenate)
+		// Create a temporary filelist.txt file
+		filelistPath := filepath.Join(filepath.Dir(outputFile), "filelist.txt")
+		filelist, err := os.Create(filelistPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to get absolute path for %s: %w", file, err)
+			return "", fmt.Errorf("failed to create filelist: %w", err)
 		}
-		args = append(args, "-i", absFilePath)
-	}
+		defer os.Remove(filelistPath) // Clean up after we're done
+		defer filelist.Close()
 
-	// Build concat filter complex with timestamp normalization (robust version)
-	numFiles := len(selectedFiles)
-	var filterComplex strings.Builder
-
-	// Add timestamp normalization for each input
-	for i := 0; i < numFiles; i++ {
-		if i > 0 {
-			filterComplex.WriteString(";")
+		// Write file entries to filelist
+		for _, file := range selectedFiles {
+			absFilePath, err := filepath.Abs(file)
+			if err != nil {
+				return "", fmt.Errorf("failed to get absolute path for %s: %w", file, err)
+			}
+			// Escape single quotes in the path for the filelist format
+			escapedPath := strings.ReplaceAll(absFilePath, "'", "'\\''")
+			filelist.WriteString(fmt.Sprintf("file '%s'\n", escapedPath))
 		}
-		filterComplex.WriteString(fmt.Sprintf("[%d:v]setpts=PTS-STARTPTS[v%d];[%d:a]asetpts=PTS-STARTPTS[a%d]", i, i, i, i))
-	}
+		filelist.Close()
 
-	// Add concat with normalized streams
-	filterComplex.WriteString(";")
-	for i := 0; i < numFiles; i++ {
-		filterComplex.WriteString(fmt.Sprintf("[v%d][a%d]", i, i))
-	}
-	filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=1:a=1[outv][outa]", numFiles))
-
-	// Add filter_complex and other arguments
-	args = append(args, "-filter_complex", filterComplex.String())
-	args = append(args, "-map", "[outv]")
-	args = append(args, "-map", "[outa]")
-
-	if wayTooBig {
-		// ProRes LT - way too big but high quality for DaVinci Resolve
-		args = append(args, "-c:v", "prores_ks")
-		args = append(args, "-profile:v", "1")
-		args = append(args, "-pix_fmt", "yuv422p10le")
-		args = append(args, "-threads", "0")
-		args = append(args, "-c:a", "pcm_s16le")
-		args = append(args, "-ar", "48000")
-		args = append(args, "-ac", "2")
+		// Build concat demuxer command
+		args = append(args, "-f", "concat")
+		args = append(args, "-safe", "0")
+		args = append(args, "-i", filelistPath)
+		args = append(args, "-c", "copy") // Copy streams without re-encoding
+		args = append(args, outputFile)
 	} else {
-		// Default: NVENC H.265 - GPU accelerated, efficient encoding
-		args = append(args, "-c:v", "hevc_nvenc")
-		args = append(args, "-preset", "p6")        // Quality preset (p1=fastest, p7=slowest/highest quality)
-		args = append(args, "-tune", "hq")          // High quality tuning
-		args = append(args, "-rc", "vbr_hq")        // High quality variable bitrate
-		args = append(args, "-cq", "22")            // Constant quality level (lower = higher quality, 18-28 range)
-		args = append(args, "-b:v", "0")            // Bitrate 0 when using CQ mode
-		args = append(args, "-maxrate", "0")        // Max rate 0 when using CQ mode
-		args = append(args, "-pix_fmt", "p010le")   // 10-bit pixel format
-		args = append(args, "-profile:v", "main10") // H.265 Main 10 profile for 10-bit
-		args = append(args, "-c:a", "aac")
-		args = append(args, "-b:a", "160k") // Audio bitrate
-		args = append(args, "-ar", "48000")
-		args = append(args, "-ac", "2")
-		args = append(args, "-movflags", "+faststart") // Fast start for web streaming
-	}
+		// Encoding modes: Use filter_complex with timestamp normalization
+		// Add all input files with -i flag
+		for _, file := range selectedFiles {
+			// Get absolute path for each file to ensure ffmpeg can find them
+			absFilePath, err := filepath.Abs(file)
+			if err != nil {
+				return "", fmt.Errorf("failed to get absolute path for %s: %w", file, err)
+			}
+			args = append(args, "-i", absFilePath)
+		}
 
-	args = append(args, outputFile)
+		// Build concat filter complex with timestamp normalization (robust version)
+		numFiles := len(selectedFiles)
+		var filterComplex strings.Builder
+
+		// Add timestamp normalization for each input
+		for i := 0; i < numFiles; i++ {
+			if i > 0 {
+				filterComplex.WriteString(";")
+			}
+			filterComplex.WriteString(fmt.Sprintf("[%d:v]setpts=PTS-STARTPTS[v%d];[%d:a]asetpts=PTS-STARTPTS[a%d]", i, i, i, i))
+		}
+
+		// Add concat with normalized streams
+		filterComplex.WriteString(";")
+		for i := 0; i < numFiles; i++ {
+			filterComplex.WriteString(fmt.Sprintf("[v%d][a%d]", i, i))
+		}
+		filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=1:a=1[outv][outa]", numFiles))
+
+		// Add filter_complex and other arguments
+		args = append(args, "-filter_complex", filterComplex.String())
+		args = append(args, "-map", "[outv]")
+		args = append(args, "-map", "[outa]")
+
+		if mode == "prores" {
+			// ProRes LT - way too big but high quality for DaVinci Resolve
+			args = append(args, "-c:v", "prores_ks")
+			args = append(args, "-profile:v", "1")
+			args = append(args, "-pix_fmt", "yuv422p10le")
+			args = append(args, "-threads", "0")
+			args = append(args, "-c:a", "pcm_s16le")
+			args = append(args, "-ar", "48000")
+			args = append(args, "-ac", "2")
+		} else if mode == "nvenc" {
+			// NVENC H.265 - GPU accelerated, efficient encoding
+			args = append(args, "-c:v", "hevc_nvenc")
+			args = append(args, "-preset", "p6")        // Quality preset (p1=fastest, p7=slowest/highest quality)
+			args = append(args, "-tune", "hq")          // High quality tuning
+			args = append(args, "-rc", "vbr_hq")        // High quality variable bitrate
+			args = append(args, "-cq", "22")            // Constant quality level (lower = higher quality, 18-28 range)
+			args = append(args, "-b:v", "0")            // Bitrate 0 when using CQ mode
+			args = append(args, "-maxrate", "0")        // Max rate 0 when using CQ mode
+			args = append(args, "-pix_fmt", "p010le")   // 10-bit pixel format
+			args = append(args, "-profile:v", "main10") // H.265 Main 10 profile for 10-bit
+			args = append(args, "-c:a", "aac")
+			args = append(args, "-b:a", "160k") // Audio bitrate
+			args = append(args, "-ar", "48000")
+			args = append(args, "-ac", "2")
+			args = append(args, "-movflags", "+faststart") // Fast start for web streaming
+		}
+
+		args = append(args, outputFile)
+	}
 
 	// Execute ffmpeg command directly in the terminal
 	// The TUI has already exited and restored the terminal, so this will run in the normal terminal
@@ -388,8 +458,12 @@ func runFFmpegCommand(selectedFiles []string, outputFile string, wayTooBig bool)
 	cmd.Stdin = os.Stdin // Allow interactive input (like 'q' to quit)
 
 	// Print a brief message before starting (to stderr so it doesn't interfere with ffmpeg output)
-	fmt.Fprintf(os.Stderr, "Running ffmpeg to combine %d video file(s) into %s...\n", len(selectedFiles), outputFile)
-	fmt.Fprintf(os.Stderr, "Press 'q' during encoding to quit.\n\n")
+	if mode == "fast" {
+		fmt.Fprintf(os.Stderr, "Fast concatenating %d video file(s) into %s (no re-encoding)...\n", len(selectedFiles), outputFile)
+	} else {
+		fmt.Fprintf(os.Stderr, "Running ffmpeg to combine %d video file(s) into %s...\n", len(selectedFiles), outputFile)
+		fmt.Fprintf(os.Stderr, "Press 'q' during encoding to quit.\n\n")
+	}
 
 	// Run the command - this will output directly to the terminal in real-time
 	if err := cmd.Run(); err != nil {
