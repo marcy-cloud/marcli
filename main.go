@@ -105,7 +105,7 @@ func initialModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(spinner.Tick, nil)
+	return tea.Batch(m.spin.Tick, nil)
 }
 
 /* ---------- command runners (separate functions) ---------- */
