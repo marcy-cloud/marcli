@@ -49,6 +49,9 @@ func main() {
 		if cmdName == "mega-combine" && len(args) > 1 && args[1] == "--test" {
 			ctx = context.WithValue(ctx, "megaCombineTestMode", true)
 		}
+		if cmdName == "build" && len(args) > 1 && args[1] == "--fast" {
+			ctx = context.WithValue(ctx, "buildFastMode", true)
+		}
 
 		out, err := cmd(ctx)
 		if err != nil {

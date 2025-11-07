@@ -14,6 +14,9 @@ import (
 
 // RunBuild runs go build for macOS, Linux, and Windows - building everything with love! 💖
 func RunBuild(ctx context.Context) (string, error) {
+	// Check if fast mode is enabled
+	fastMode := ctx.Value("buildFastMode") == true
+
 	// Increment build number - we're so organized! 🎀
 	if err := IncrementBuild(); err != nil {
 		return "", fmt.Errorf("failed to increment build number: %w", err)
@@ -31,42 +34,45 @@ func RunBuild(ctx context.Context) (string, error) {
 
 	var allErrors []string
 
-	// Build targets: [GOOS, GOARCH, output suffix] - building for everyone! 🌈
-	targets := [][]string{
-		{"darwin", "amd64", "darwin-amd64"},
-		{"darwin", "arm64", "darwin-arm64"},
-		{"linux", "amd64", "linux-amd64"},
-		{"linux", "arm64", "linux-arm64"},
-		{"windows", "amd64", "windows-amd64.exe"},
-		{"windows", "arm64", "windows-arm64.exe"},
-	}
-
-	// Create releases directory if it doesn't exist - so organized! 💅
-	releasesDir := "releases"
-	if err := os.MkdirAll(releasesDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create releases directory: %w", err)
-	}
-
 	// Build ldflags to embed version and build - so embedded! ✨
 	ldflags := fmt.Sprintf("-X marcli/cmd.Version=%s -X marcli/cmd.Build=%d", config.Version, config.Build)
 
-	for _, target := range targets {
-		goos, goarch, suffix := target[0], target[1], target[2]
-		outputName := filepath.Join(releasesDir, fmt.Sprintf("marcli-%s", suffix))
+	// Skip cross-platform builds in fast mode
+	if !fastMode {
+		// Build targets: [GOOS, GOARCH, output suffix] - building for everyone! 🌈
+		targets := [][]string{
+			{"darwin", "amd64", "darwin-amd64"},
+			{"darwin", "arm64", "darwin-arm64"},
+			{"linux", "amd64", "linux-amd64"},
+			{"linux", "arm64", "linux-arm64"},
+			{"windows", "amd64", "windows-amd64.exe"},
+			{"windows", "arm64", "windows-arm64.exe"},
+		}
 
-		var out, errBuf bytes.Buffer
-		buildCmd := exec.CommandContext(ctx, "go", "build", "-ldflags", ldflags, "-o", outputName)
-		buildCmd.Env = append(os.Environ(), fmt.Sprintf("GOOS=%s", goos), fmt.Sprintf("GOARCH=%s", goarch))
-		buildCmd.Stdout = &out
-		buildCmd.Stderr = &errBuf
-		err := buildCmd.Run()
+		// Create releases directory if it doesn't exist - so organized! 💅
+		releasesDir := "releases"
+		if err := os.MkdirAll(releasesDir, 0755); err != nil {
+			return "", fmt.Errorf("failed to create releases directory: %w", err)
+		}
 
-		if err != nil {
-			errorMsg := fmt.Sprintf("%s/%s: FAILED - %s", goos, goarch, strings.TrimSpace(errBuf.String()))
-			allErrors = append(allErrors, errorMsg)
-			results = append(results, errorMsg)
-		} else {
-			results = append(results, fmt.Sprintf("%s/%s: OK -> %s", goos, goarch, outputName))
+		for _, target := range targets {
+			goos, goarch, suffix := target[0], target[1], target[2]
+			outputName := filepath.Join(releasesDir, fmt.Sprintf("marcli-%s", suffix))
+
+			var out, errBuf bytes.Buffer
+			buildCmd := exec.CommandContext(ctx, "go", "build", "-ldflags", ldflags, "-o", outputName)
+			buildCmd.Env = append(os.Environ(), fmt.Sprintf("GOOS=%s", goos), fmt.Sprintf("GOARCH=%s", goarch))
+			buildCmd.Stdout = &out
+			buildCmd.Stderr = &errBuf
+			err := buildCmd.Run()
+
+			if err != nil {
+				errorMsg := fmt.Sprintf("%s/%s: FAILED - %s", goos, goarch, strings.TrimSpace(errBuf.String()))
+				allErrors = append(allErrors, errorMsg)
+				results = append(results, errorMsg)
+			} else {
+				results = append(results, fmt.Sprintf("%s/%s: OK -> %s", goos, goarch, outputName))
+			}
 		}
 	}
 
