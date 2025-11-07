@@ -40,18 +40,20 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		return
 	}
 
-	// Format: 💖 display text (when selected) or 💕 display text (when not selected)
-	emoji := "💕"
+	// Format: checkbox/checkmark + display text
+	// ⬜ for unselected, ✅ for selected
+	checkbox := "⬜"
 	if item.IsSelected() {
-		emoji = "💖"
+		checkbox = "✅"
 	}
 	
-	str := fmt.Sprintf("%s %s", emoji, item.DisplayText())
+	str := fmt.Sprintf("%s %s", checkbox, item.DisplayText())
 
 	fn := itemStyle.Render
 	if index == m.Index() {
+		// Heart (💖) is the cursor indicator for highlighted items
 		fn = func(s ...string) string {
-			return selectedItemStyle.Render("> " + strings.Join(s, " "))
+			return selectedItemStyle.Render("💖 " + strings.Join(s, " "))
 		}
 	}
 
