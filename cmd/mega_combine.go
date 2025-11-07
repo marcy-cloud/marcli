@@ -209,15 +209,51 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 			return output.String(), nil
 		}
 
-		// Main mode - will be implemented later
-		// For now, return the same as test mode
-		var output strings.Builder
-		output.WriteString("Selected video files:\n")
-		for _, file := range m.selectedFiles {
-			output.WriteString("  " + file + "\n")
-		}
-		return output.String(), nil
+		// Main mode - generate ffmpeg command
+		return generateFFmpegCommand(m.selectedFiles)
 	}
 
 	return "Video file selection completed. Check logs for selected files.", nil
+}
+
+// generateFFmpegCommand creates an ffmpeg command using the selected files without a filelist
+func generateFFmpegCommand(selectedFiles []string) (string, error) {
+	if len(selectedFiles) == 0 {
+		return "", fmt.Errorf("no files selected")
+	}
+
+	var cmd strings.Builder
+
+	// Add all input files with -i flag
+	for _, file := range selectedFiles {
+		// Get absolute path for each file to ensure ffmpeg can find them
+		absFilePath, err := filepath.Abs(file)
+		if err != nil {
+			return "", fmt.Errorf("failed to get absolute path for %s: %w", file, err)
+		}
+		cmd.WriteString(fmt.Sprintf(" -i \"%s\"", absFilePath))
+	}
+
+	// Build concat filter complex
+	// Format: [0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1[outv][outa]
+	numFiles := len(selectedFiles)
+	var filterComplex strings.Builder
+	for i := 0; i < numFiles; i++ {
+		filterComplex.WriteString(fmt.Sprintf("[%d:v][%d:a]", i, i))
+	}
+	filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=1:a=1[outv][outa]", numFiles))
+
+	// Generate the complete ffmpeg command
+	cmd.WriteString(" \\\n")
+	cmd.WriteString("  -filter_complex \"")
+	cmd.WriteString(filterComplex.String())
+	cmd.WriteString("\" \\\n")
+	cmd.WriteString("  -map \"[outv]\" -map \"[outa]\" \\\n")
+	cmd.WriteString("  -c:v prores_ks -profile:v 1 -pix_fmt yuv422p10le -threads 0 \\\n")
+	cmd.WriteString("  -c:a pcm_s16le -ar 48000 -ac 2 \\\n")
+	cmd.WriteString("  \"Resolve_iPad_Stitch_ProResLT.mov\"")
+
+	// Prepend "ffmpeg" to the command
+	fullCmd := "ffmpeg" + cmd.String()
+	return fullCmd, nil
 }
