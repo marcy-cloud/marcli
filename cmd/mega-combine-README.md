@@ -2,6 +2,8 @@
 
 A super cute command-line tool for selecting and combining multiple video files into a single ProRes file, optimized for DaVinci Resolve on iPad! ✨
 
+![mega-combine demo](../assets/demo.gif)
+
 The command uses different ffmpeg settings depending on the mode - we're so flexible! ✨
 
 ### Default Mode (Fast Concatenation) ⚡
