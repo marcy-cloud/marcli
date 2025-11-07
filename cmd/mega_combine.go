@@ -200,9 +200,21 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 			return "No files selected.", nil
 		}
 
+		// Get output filename from context, default to "out.mov"
+		outputFile := "out.mov"
+		if outFile := ctx.Value("megaCombineOutput"); outFile != nil {
+			if outFileStr, ok := outFile.(string); ok && outFileStr != "" {
+				outputFile = outFileStr
+				// Add .mov extension if not provided
+				if !strings.HasSuffix(strings.ToLower(outputFile), ".mov") {
+					outputFile = outputFile + ".mov"
+				}
+			}
+		}
+
 		// In test mode, show the ffmpeg command that would be run
 		if testMode {
-			cmd, err := generateFFmpegCommand(m.selectedFiles)
+			cmd, err := generateFFmpegCommand(m.selectedFiles, outputFile)
 			if err != nil {
 				return "", err
 			}
@@ -210,14 +222,14 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 		}
 
 		// Main mode - actually run the ffmpeg command
-		return runFFmpegCommand(m.selectedFiles)
+		return runFFmpegCommand(m.selectedFiles, outputFile)
 	}
 
 	return "Video file selection completed. Check logs for selected files.", nil
 }
 
 // generateFFmpegCommand creates an ffmpeg command using the selected files without a filelist
-func generateFFmpegCommand(selectedFiles []string) (string, error) {
+func generateFFmpegCommand(selectedFiles []string, outputFile string) (string, error) {
 	if len(selectedFiles) == 0 {
 		return "", fmt.Errorf("no files selected")
 	}
@@ -263,7 +275,7 @@ func generateFFmpegCommand(selectedFiles []string) (string, error) {
 	cmd.WriteString("  -map \"[outv]\" -map \"[outa]\" \\\n")
 	cmd.WriteString("  -c:v prores_ks -profile:v 1 -pix_fmt yuv422p10le -threads 0 \\\n")
 	cmd.WriteString("  -c:a pcm_s16le -ar 48000 -ac 2 \\\n")
-	cmd.WriteString("  \"out.mov\"")
+	cmd.WriteString(fmt.Sprintf("  \"%s\"", outputFile))
 
 	// Prepend "ffmpeg" to the command
 	fullCmd := "ffmpeg" + cmd.String()
@@ -271,7 +283,7 @@ func generateFFmpegCommand(selectedFiles []string) (string, error) {
 }
 
 // runFFmpegCommand executes the ffmpeg command with the selected files
-func runFFmpegCommand(selectedFiles []string) (string, error) {
+func runFFmpegCommand(selectedFiles []string, outputFile string) (string, error) {
 	if len(selectedFiles) == 0 {
 		return "", fmt.Errorf("no files selected")
 	}
@@ -319,7 +331,7 @@ func runFFmpegCommand(selectedFiles []string) (string, error) {
 	args = append(args, "-c:a", "pcm_s16le")
 	args = append(args, "-ar", "48000")
 	args = append(args, "-ac", "2")
-	args = append(args, "out.mov")
+	args = append(args, outputFile)
 
 	// Execute ffmpeg command
 	cmd := exec.Command("ffmpeg", args...)
@@ -331,5 +343,5 @@ func runFFmpegCommand(selectedFiles []string) (string, error) {
 		return "", fmt.Errorf("ffmpeg command failed: %w", err)
 	}
 
-	return "Video files successfully combined into out.mov", nil
+	return fmt.Sprintf("Video files successfully combined into %s", outputFile), nil
 }

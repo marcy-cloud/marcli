@@ -44,10 +44,17 @@ func main() {
 		}
 
 		ctx := context.Background()
-		
+
 		// Handle flags for specific commands
-		if cmdName == "mega-combine" && len(args) > 1 && args[1] == "--test" {
-			ctx = context.WithValue(ctx, "megaCombineTestMode", true)
+		if cmdName == "mega-combine" {
+			for i := 1; i < len(args); i++ {
+				if args[i] == "--test" {
+					ctx = context.WithValue(ctx, "megaCombineTestMode", true)
+				} else if args[i] == "--out" && i+1 < len(args) {
+					ctx = context.WithValue(ctx, "megaCombineOutput", args[i+1])
+					i++ // Skip the next argument since we consumed it
+				}
+			}
 		}
 		if cmdName == "build" && len(args) > 1 && args[1] == "--fast" {
 			ctx = context.WithValue(ctx, "buildFastMode", true)
