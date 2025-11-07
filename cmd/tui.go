@@ -99,6 +99,12 @@ func initialTuiModel() tuiModel {
 			desc:  `Show version and build number`,
 			run:   RunVersion,
 		},
+		menuItem{
+			name:  "mega-combine",
+			title: "Mega Combine",
+			desc:  `Select and combine video files from current directory`,
+			run:   RunMegaCombine,
+		},
 	}
 
 	l := list.New(items, list.NewDefaultDelegate(), 36, 10)

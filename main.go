@@ -20,6 +20,7 @@ func initCommands() {
 	commandRegistry["bash-echo"] = cmd.RunBashEcho
 	commandRegistry["build"] = cmd.RunBuild
 	commandRegistry["version"] = cmd.RunVersion
+	commandRegistry["mega-combine"] = cmd.RunMegaCombine
 }
 
 func main() {
