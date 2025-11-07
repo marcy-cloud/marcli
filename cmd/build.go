@@ -47,12 +47,15 @@ func RunBuild(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to create releases directory: %w", err)
 	}
 
+	// Build ldflags to embed version and build - so embedded! ✨
+	ldflags := fmt.Sprintf("-X marcli/cmd.Version=%s -X marcli/cmd.Build=%d", config.Version, config.Build)
+
 	for _, target := range targets {
 		goos, goarch, suffix := target[0], target[1], target[2]
 		outputName := filepath.Join(releasesDir, fmt.Sprintf("marcli-%s", suffix))
 
 		var out, errBuf bytes.Buffer
-		buildCmd := exec.CommandContext(ctx, "go", "build", "-o", outputName)
+		buildCmd := exec.CommandContext(ctx, "go", "build", "-ldflags", ldflags, "-o", outputName)
 		buildCmd.Env = append(os.Environ(), fmt.Sprintf("GOOS=%s", goos), fmt.Sprintf("GOARCH=%s", goarch))
 		buildCmd.Stdout = &out
 		buildCmd.Stderr = &errBuf
@@ -76,7 +79,7 @@ func RunBuild(ctx context.Context) (string, error) {
 	}
 
 	var out, errBuf bytes.Buffer
-	buildCmd := exec.CommandContext(ctx, "go", "build", "-o", finalName)
+	buildCmd := exec.CommandContext(ctx, "go", "build", "-ldflags", ldflags, "-o", finalName)
 	buildCmd.Stdout = &out
 	buildCmd.Stderr = &errBuf
 	err = buildCmd.Run()
