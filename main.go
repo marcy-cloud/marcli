@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -34,6 +35,7 @@ var (
 /* ---------- menu items ---------- */
 
 type menuItem struct {
+	name  string // canonical CLI name
 	title string
 	desc  string
 	run   func(context.Context) (string, error)
@@ -42,6 +44,37 @@ type menuItem struct {
 func (i menuItem) Title() string       { return itemTitle.Render(i.title) }
 func (i menuItem) Description() string { return itemDesc.Render(i.desc) }
 func (i menuItem) FilterValue() string { return i.title }
+
+// commandRegistry maps CLI names to command functions
+var commandRegistry = make(map[string]func(context.Context) (string, error))
+
+// initCommands populates the command registry
+func initCommands() {
+	items := []menuItem{
+		{
+			name:  "go-echo",
+			title: "Golang echo",
+			desc:  `Echo "Golang echo" using native Go code`,
+			run:   runGoEcho,
+		},
+		{
+			name:  "ps-echo",
+			title: "PowerShell echo",
+			desc:  `Echo "Powershell echo" by launching PowerShell`,
+			run:   runPSEcho,
+		},
+		{
+			name:  "bash-echo",
+			title: "Bash echo",
+			desc:  `Echo "Bash echo" via bash (or sh)`,
+			run:   runBashEcho,
+		},
+	}
+
+	for _, item := range items {
+		commandRegistry[item.name] = item.run
+	}
+}
 
 /* ---------- model ---------- */
 
@@ -68,16 +101,19 @@ func initialModel() model {
 
 	items := []list.Item{
 		menuItem{
+			name:  "go-echo",
 			title: "Golang echo",
 			desc:  `Echo "Golang echo" using native Go code`,
 			run:   runGoEcho,
 		},
 		menuItem{
+			name:  "ps-echo",
 			title: "PowerShell echo",
 			desc:  `Echo "Powershell echo" by launching PowerShell`,
 			run:   runPSEcho,
 		},
 		menuItem{
+			name:  "bash-echo",
 			title: "Bash echo",
 			desc:  `Echo "Bash echo" via bash (or sh)`,
 			run:   runBashEcho,
@@ -253,6 +289,29 @@ func (m model) View() string {
 }
 
 func main() {
+	// Initialize command registry
+	initCommands()
+
+	args := os.Args[1:]
+
+	// CLI mode: if args provided, run command directly
+	if len(args) > 0 {
+		cmdName := args[0]
+		cmd, exists := commandRegistry[cmdName]
+		if !exists {
+			logger.Fatal("unknown command", "command", cmdName)
+		}
+
+		ctx := context.Background()
+		out, err := cmd(ctx)
+		if err != nil {
+			logger.Fatal("command failed", "err", err)
+		}
+		fmt.Print(out)
+		return
+	}
+
+	// TUI mode: no args, show interactive menu
 	if err := tea.NewProgram(initialModel(), tea.WithAltScreen()).Start(); err != nil {
 		logger.Fatal("error", "err", err)
 	}
