@@ -69,6 +69,12 @@ func initCommands() {
 			desc:  `Echo "Bash echo" via bash (or sh)`,
 			run:   cmd.RunBashEcho,
 		},
+		{
+			name:  "build",
+			title: "Build",
+			desc:  `Run go build`,
+			run:   cmd.RunBuild,
+		},
 	}
 
 	for _, item := range items {
@@ -117,6 +123,12 @@ func initialModel() model {
 			title: "Bash echo",
 			desc:  `Echo "Bash echo" via bash (or sh)`,
 			run:   cmd.RunBashEcho,
+		},
+		menuItem{
+			name:  "build",
+			title: "Build",
+			desc:  `Run go build`,
+			run:   cmd.RunBuild,
 		},
 	}
 
