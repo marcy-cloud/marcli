@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	logger "github.com/charmbracelet/log"
 )
 
 /* ---------- styling ---------- */
@@ -111,7 +112,7 @@ func (m model) Init() tea.Cmd {
 
 func runGoEcho(ctx context.Context) (string, error) {
 	// Pure Go — no external process.
-	time.Sleep(100 * time.Millisecond)
+	logger.Info("Running Go echo")
 	return "Golang echo", nil
 }
 
