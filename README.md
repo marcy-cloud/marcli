@@ -13,6 +13,17 @@ This is a super cute Terminal UI app that represents my personal CLI knowledge, 
 - **Version Tracking** ✨ - We keep track of builds because we're organized like that!
 - **Cross-Platform Builds** 🌈 - Works everywhere because we're inclusive!
 
+## Commands 💅
+
+Here are all the cute commands available:
+
+- `go-echo` - Echo using pure Go (no external processes) - so clean! 💕
+- `ps-echo` - Echo using PowerShell - so powerful! 💪
+- `bash-echo` - Echo using bash/sh - classic and cute! 🎀
+- `build` - Build for all platforms (macOS, Linux, Windows) and install to PATH - building everything with love! 💖
+- `version` - Show version and build number - so organized! ✨
+- `-v` / `--version` - Quick version check (aliases for `version`) - we're so flexible! 💅
+
 ## Quick Start 💖
 
 Just run `marcli` with no args to see the cute TUI, or use commands directly:
@@ -21,6 +32,7 @@ Just run `marcli` with no args to see the cute TUI, or use commands directly:
 marcli version    # See the version (so fancy!)
 marcli build      # Build everything! 💪
 marcli -v         # Quick version check ✨
+marcli go-echo    # Try a command! 🎀
 ```
 
 Enjoy! 💕
