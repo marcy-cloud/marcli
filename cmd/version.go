@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// RunVersion displays the current version and build number.
+// RunVersion displays the current version and build number - so cute! ✨
 func RunVersion(ctx context.Context) (string, error) {
 	version, err := GetVersion()
 	if err != nil {

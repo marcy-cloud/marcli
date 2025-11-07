@@ -8,16 +8,16 @@ import (
 	"runtime"
 )
 
-// RunPSEcho runs a PowerShell echo command.
+// RunPSEcho runs a PowerShell echo command - so powerful! 💪
 func RunPSEcho(ctx context.Context) (string, error) {
-	// Prefer PowerShell 7+ if available
+	// Prefer PowerShell 7+ if available - we're so modern! ✨
 	ps := "pwsh"
 	if _, err := exec.LookPath(ps); err != nil {
-		// Fallbacks
+		// Fallbacks - we're flexible like that! 💅
 		if runtime.GOOS == "windows" {
 			ps = "powershell.exe"
 		} else {
-			// Non-Windows without pwsh installed
+			// Non-Windows without pwsh installed - we'll help them out! 💖
 			return "", fmt.Errorf("PowerShell (pwsh) not found. Install from https://github.com/PowerShell/PowerShell")
 		}
 	}

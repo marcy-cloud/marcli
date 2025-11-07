@@ -7,15 +7,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config represents the application configuration
+// Config represents the application configuration - keeping track of our version and builds! 💕
 type Config struct {
-	Version string `yaml:"version"`
-	Build   int    `yaml:"build"`
+	Version string `yaml:"version"` // Our cute version number! ✨
+	Build   int    `yaml:"build"`   // Build counter - we're so organized! 🎀
 }
 
-const configFile = "config.yml"
+const configFile = "config.yml" // Where we keep our config, obviously! 💖
 
-// LoadConfig loads the configuration from config.yml
+// LoadConfig loads the configuration from config.yml - so reliable! ✨
 func LoadConfig() (*Config, error) {
 	data, err := os.ReadFile(configFile)
 	if err != nil {
@@ -30,7 +30,7 @@ func LoadConfig() (*Config, error) {
 	return &config, nil
 }
 
-// SaveConfig saves the configuration to config.yml
+// SaveConfig saves the configuration to config.yml - keeping everything organized! 💅
 func SaveConfig(config *Config) error {
 	data, err := yaml.Marshal(config)
 	if err != nil {
@@ -44,11 +44,11 @@ func SaveConfig(config *Config) error {
 	return nil
 }
 
-// IncrementBuild increments the build number and saves the config
+// IncrementBuild increments the build number and saves the config - we're so organized! 🎀
 func IncrementBuild() error {
 	config, err := LoadConfig()
 	if err != nil {
-		// If config doesn't exist, create a default one
+		// If config doesn't exist, create a cute default one! ✨
 		config = &Config{
 			Version: "0.1.0",
 			Build:   0,
@@ -59,7 +59,7 @@ func IncrementBuild() error {
 	return SaveConfig(config)
 }
 
-// GetVersion returns the version string
+// GetVersion returns the version string - formatted so nicely! 💖
 func GetVersion() (string, error) {
 	config, err := LoadConfig()
 	if err != nil {

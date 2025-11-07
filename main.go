@@ -10,10 +10,10 @@ import (
 	logger "github.com/charmbracelet/log"
 )
 
-// commandRegistry maps CLI names to command functions
+// commandRegistry maps CLI names to command functions - so organized! 💕
 var commandRegistry = make(map[string]func(context.Context) (string, error))
 
-// initCommands populates the command registry
+// initCommands populates the command registry with all our cute commands! ✨
 func initCommands() {
 	commandRegistry["go-echo"] = cmd.RunGoEcho
 	commandRegistry["ps-echo"] = cmd.RunPSEcho
@@ -23,16 +23,16 @@ func initCommands() {
 }
 
 func main() {
-	// Initialize command registry
+	// Initialize our cute command registry! 💖
 	initCommands()
 
 	args := os.Args[1:]
 
-	// CLI mode: if args provided, run command directly
+	// CLI mode: if args provided, run command directly (so efficient!) 💅
 	if len(args) > 0 {
 		cmdName := args[0]
 
-		// Handle flag aliases
+		// Handle flag aliases - we're so flexible! ✨
 		if cmdName == "-v" || cmdName == "--version" {
 			cmdName = "version"
 		}
@@ -51,7 +51,7 @@ func main() {
 		return
 	}
 
-	// TUI mode: no args, show interactive menu (default)
+	// TUI mode: no args, show the cute interactive menu (default) 🎀
 	if err := cmd.RunTUI(); err != nil {
 		logger.Fatal("error", "err", err)
 	}

@@ -8,9 +8,9 @@ import (
 	"runtime"
 )
 
-// RunBashEcho runs a bash echo command.
+// RunBashEcho runs a bash echo command - classic and cute! 🎀
 func RunBashEcho(ctx context.Context) (string, error) {
-	// Try bash; fallback to sh if present (Linux/macOS). On Windows, suggest Git Bash/WSL.
+	// Try bash; fallback to sh if present (Linux/macOS). On Windows, suggest Git Bash/WSL - so helpful! ✨
 	if _, err := exec.LookPath("bash"); err == nil {
 		return runShell(ctx, "bash", []string{"-lc", "echo 'Bash echo'"})
 	}

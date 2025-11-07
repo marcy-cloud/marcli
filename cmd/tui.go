@@ -14,9 +14,10 @@ import (
 )
 
 /* ---------- styling ---------- */
+// All our cute styles for the TUI! 💕
 
 var (
-	titleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212")) // cyan-ish
+	titleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212")) // cyan-ish - so pretty! ✨
 	subtleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 	okStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
@@ -29,9 +30,10 @@ var (
 )
 
 /* ---------- menu items ---------- */
+// Our cute menu items! 🎀
 
 type menuItem struct {
-	name  string // canonical CLI name
+	name  string // canonical CLI name - so organized! 💖
 	title string
 	desc  string
 	run   func(context.Context) (string, error)
@@ -42,6 +44,7 @@ func (i menuItem) Description() string { return itemDesc.Render(i.desc) }
 func (i menuItem) FilterValue() string { return i.title }
 
 /* ---------- model ---------- */
+// Our cute TUI model - keeping everything organized! 💅
 
 type tuiModel struct {
 	osFlavor string
@@ -59,6 +62,7 @@ type outputMsg struct {
 }
 
 func initialTuiModel() tuiModel {
+	// Initialize our cute TUI model! ✨
 	osFlavor := "Linux"
 	if runtime.GOOS == "windows" {
 		osFlavor = "Windows"
@@ -121,6 +125,7 @@ func (m tuiModel) Init() tea.Cmd {
 }
 
 /* ---------- tea update/view ---------- */
+// Handling all the cute interactions! 💖
 
 func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -202,7 +207,7 @@ func (m tuiModel) View() string {
 	return header + body + foot
 }
 
-// RunTUI starts the interactive TUI.
+// RunTUI starts the interactive TUI - so cute and interactive! 🎀
 func RunTUI() error {
 	return tea.NewProgram(initialTuiModel(), tea.WithAltScreen()).Start()
 }

@@ -12,14 +12,14 @@ import (
 	"strings"
 )
 
-// RunBuild runs go build for macOS, Linux, and Windows.
+// RunBuild runs go build for macOS, Linux, and Windows - building everything with love! 💖
 func RunBuild(ctx context.Context) (string, error) {
-	// Increment build number
+	// Increment build number - we're so organized! 🎀
 	if err := IncrementBuild(); err != nil {
 		return "", fmt.Errorf("failed to increment build number: %w", err)
 	}
 
-	// Load and display version info
+	// Load and display version info - keeping track of our progress! ✨
 	config, err := LoadConfig()
 	if err != nil {
 		return "", fmt.Errorf("failed to load config: %w", err)
@@ -31,7 +31,7 @@ func RunBuild(ctx context.Context) (string, error) {
 
 	var allErrors []string
 
-	// Build targets: [GOOS, GOARCH, output suffix]
+	// Build targets: [GOOS, GOARCH, output suffix] - building for everyone! 🌈
 	targets := [][]string{
 		{"darwin", "amd64", "darwin-amd64"},
 		{"darwin", "arm64", "darwin-arm64"},
@@ -41,7 +41,7 @@ func RunBuild(ctx context.Context) (string, error) {
 		{"windows", "arm64", "windows-arm64.exe"},
 	}
 
-	// Create releases directory if it doesn't exist
+	// Create releases directory if it doesn't exist - so organized! 💅
 	releasesDir := "releases"
 	if err := os.MkdirAll(releasesDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create releases directory: %w", err)
@@ -67,7 +67,7 @@ func RunBuild(ctx context.Context) (string, error) {
 		}
 	}
 
-	// Build for current platform (no cross-compilation)
+	// Build for current platform (no cross-compilation) - building locally! 💖
 	var finalName string
 	if runtime.GOOS == "windows" {
 		finalName = "marcli.exe"
