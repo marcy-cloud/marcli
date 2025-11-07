@@ -100,7 +100,7 @@ func initialTuiModel() tuiModel {
 		Items:    selectableItems,
 		Width:    80,
 		Height:   ui.DefaultListHeight,
-		HelpText: "Enter: run command, Ctrl+C: quit",
+		HelpText: "Space/Enter: run command, Ctrl+C: quit",
 	})
 
 	return tuiModel{
@@ -114,6 +114,19 @@ func (m *tuiModel) Init() tea.Cmd {
 }
 
 func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle spacebar before it reaches the list model - treat it like Enter
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == " " {
+		// Get the currently highlighted command and select it
+		if currentItem := m.listModel.GetCurrentItem(); currentItem != nil {
+			if cmdItem, ok := currentItem.(*commandItem); ok {
+				m.selectedCommand = cmdItem
+				m.quitting = true
+				return m, tea.Quit
+			}
+		}
+		// If we can't get the item, fall through to normal handling
+	}
+
 	// Update the list model
 	updatedModel, cmd := m.listModel.Update(msg)
 	m.listModel = updatedModel.(*ui.Model)
