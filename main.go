@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -255,7 +254,6 @@ func (m model) View() string {
 
 func main() {
 	if err := tea.NewProgram(initialModel(), tea.WithAltScreen()).Start(); err != nil {
-		fmt.Println("error:", err)
-		os.Exit(1)
+		logger.Fatal("error", "err", err)
 	}
 }
