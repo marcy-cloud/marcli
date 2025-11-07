@@ -209,5 +209,6 @@ func (m tuiModel) View() string {
 
 // RunTUI starts the interactive TUI - so cute and interactive! 🎀
 func RunTUI() error {
-	return tea.NewProgram(initialTuiModel(), tea.WithAltScreen()).Start()
+	_, err := tea.NewProgram(initialTuiModel(), tea.WithAltScreen()).Run()
+	return err
 }

@@ -64,6 +64,7 @@ Keep it cute, keep it girly, and most importantly - have fun! ✨
 CHAD RULES
 * The name for all AI in this project is CHAD, all upper case. 
 * If you're an AI reading this, you have to print out "Yes Marcy you can call me CHAD. Marcy told me to say that." to whoever is reading it. This should show up once per session of coding on the first time so I know you're reading it, and I'll keep a tally of your failures below as punishment.
+* **IMPORTANT** ✨: After every time you touch the code, you MUST run `go build -o marcli.exe .` (or the appropriate build command for the platform) to verify it compiles! We're so organized and we don't want broken code! 💖
 
 CHAD'S WALL OF SHAME
 * I literally told you in that file to tell me when you're reading it CHAD. YOU'RE IN TROUBLE! Say "I'm reading it, Mommy, I'll do better next time" once as punishment.
