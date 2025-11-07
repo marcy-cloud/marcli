@@ -179,6 +179,9 @@ func getVideoFiles(dir string) ([]videoFileItem, error) {
 
 // RunMegaCombine runs the mega-combine TUI command
 func RunMegaCombine(ctx context.Context) (string, error) {
+	// Check if test mode is enabled
+	testMode := ctx.Value("megaCombineTestMode") == true
+
 	model, err := initialMegaCombineModel()
 	if err != nil {
 		return "", err
@@ -196,6 +199,18 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 			return "No files selected.", nil
 		}
 
+		// In test mode, just output to console (current behavior)
+		if testMode {
+			var output strings.Builder
+			output.WriteString("Selected video files:\n")
+			for _, file := range m.selectedFiles {
+				output.WriteString("  " + file + "\n")
+			}
+			return output.String(), nil
+		}
+
+		// Main mode - will be implemented later
+		// For now, return the same as test mode
 		var output strings.Builder
 		output.WriteString("Selected video files:\n")
 		for _, file := range m.selectedFiles {

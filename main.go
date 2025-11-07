@@ -44,6 +44,12 @@ func main() {
 		}
 
 		ctx := context.Background()
+		
+		// Handle flags for specific commands
+		if cmdName == "mega-combine" && len(args) > 1 && args[1] == "--test" {
+			ctx = context.WithValue(ctx, "megaCombineTestMode", true)
+		}
+
 		out, err := cmd(ctx)
 		if err != nil {
 			logger.Fatal("command failed", "err", err)
