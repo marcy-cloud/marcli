@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,19 +10,8 @@ import (
 	"time"
 
 	logger "github.com/charmbracelet/log"
-	"github.com/charmbracelet/bubbles/list"
+	"marcli/ui"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-)
-
-const listHeight = 20
-
-var (
-	megaTitleStyle        = lipgloss.NewStyle().MarginLeft(2)
-	megaItemStyle         = lipgloss.NewStyle().PaddingLeft(4)
-	megaSelectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
-	megaPaginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
-	megaHelpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
 )
 
 // videoFileItem represents a video file in the list
@@ -38,43 +26,23 @@ func (i videoFileItem) FilterValue() string {
 	return i.title
 }
 
-// itemDelegate handles rendering of list items
-type itemDelegate struct{}
+func (i videoFileItem) IsSelected() bool {
+	return i.selected
+}
 
-func (d itemDelegate) Height() int                             { return 1 }
-func (d itemDelegate) Spacing() int                            { return 0 }
-func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	item, ok := listItem.(videoFileItem)
-	if !ok {
-		return
-	}
+func (i *videoFileItem) SetSelected(selected bool) {
+	i.selected = selected
+}
 
-	// Format: [✓] filename (date)
-	checkmark := " "
-	if item.selected {
-		checkmark = "✓"
-	}
-	
-	dateStr := item.modTime.Format("2006-01-02 15:04")
-	str := fmt.Sprintf("[%s] %s  %s", checkmark, item.title, dateStr)
-
-	fn := megaItemStyle.Render
-	if index == m.Index() {
-		fn = func(s ...string) string {
-			return megaSelectedItemStyle.Render("> " + strings.Join(s, " "))
-		}
-	}
-
-	fmt.Fprint(w, fn(str))
+func (i videoFileItem) DisplayText() string {
+	dateStr := i.modTime.Format("2006-01-02 15:04")
+	return fmt.Sprintf("%s  %s", i.title, dateStr)
 }
 
 // megaCombineModel manages the state of the mega-combine TUI
 type megaCombineModel struct {
-	list         list.Model
-	items        []videoFileItem
-	selected     map[int]struct{}
-	quitting     bool
+	listModel   *ui.Model
+	items       []*videoFileItem
 	selectedFiles []string // Store selected file paths for return
 }
 
@@ -89,112 +57,66 @@ func initialMegaCombineModel() (megaCombineModel, error) {
 		return megaCombineModel{}, fmt.Errorf("no video files found in current directory")
 	}
 
-	// Convert to list items
-	listItems := make([]list.Item, len(items))
+	// Convert to pointers and SelectableItem interface
+	itemPtrs := make([]*videoFileItem, len(items))
+	selectableItems := make([]ui.SelectableItem, len(items))
 	for i := range items {
-		listItems[i] = items[i]
+		itemPtrs[i] = &items[i]
+		selectableItems[i] = itemPtrs[i]
 	}
 
-	// Create list with custom delegate matching list-simple style
-	const defaultWidth = 80
-	l := list.New(listItems, itemDelegate{}, defaultWidth, listHeight)
-	l.Title = "Select Video Files (Space: toggle, Enter: confirm, Ctrl+C: quit)"
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.Styles.Title = megaTitleStyle
-	l.Styles.PaginationStyle = megaPaginationStyle
-	l.Styles.HelpStyle = megaHelpStyle
-
-	selected := make(map[int]struct{})
+	// Create selectable list using the UI component
+	listModel := ui.New(ui.Config{
+		Title:    "Select Video Files",
+		Items:    selectableItems,
+		Width:    80,
+		Height:   ui.DefaultListHeight,
+		HelpText: "Space: toggle, Enter: confirm, Ctrl+C: quit",
+	})
 
 	return megaCombineModel{
-		list:     l,
-		items:    items,
-		selected: selected,
+		listModel: listModel,
+		items:     itemPtrs,
 	}, nil
 }
 
 func (m *megaCombineModel) Init() tea.Cmd {
-	return nil
+	return m.listModel.Init()
 }
 
 func (m *megaCombineModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
+	// Update the list model
+	updatedModel, cmd := m.listModel.Update(msg)
+	m.listModel = updatedModel.(*ui.Model)
 
-	// Handle key messages before passing to list
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
-		case "ctrl+c":
-			m.quitting = true
-			return m, tea.Quit
-
-		case " ":
-			// Toggle selection - handle BEFORE list gets it
-			idx := m.list.Index()
-			if _, ok := m.selected[idx]; ok {
-				delete(m.selected, idx)
-				m.items[idx].selected = false
-			} else {
-				m.selected[idx] = struct{}{}
-				m.items[idx].selected = true
-			}
-			// Update the list items to reflect selection changes
-			listItems := make([]list.Item, len(m.items))
-			for i := range m.items {
-				listItems[i] = m.items[i]
-			}
-			m.list.SetItems(listItems)
-			// Don't pass spacebar to list, we handled it
-			return m, nil
-
-		case "enter":
-			// Log selected files and quit
-			m.logSelectedFiles()
-			m.quitting = true
-			return m, tea.Quit
-		}
+	// If user confirmed (Enter), log selected files
+	if m.listModel.IsQuitting() {
+		m.logSelectedFiles()
 	}
 
-	// Handle window size
-	if winSizeMsg, ok := msg.(tea.WindowSizeMsg); ok {
-		m.list.SetWidth(winSizeMsg.Width)
-		m.list, cmd = m.list.Update(msg)
-		return m, cmd
-	}
-
-	// Pass all other messages to the list
-	m.list, cmd = m.list.Update(msg)
 	return m, cmd
 }
 
 func (m *megaCombineModel) View() string {
-	if m.quitting {
-		return ""
-	}
-	return "\n" + m.list.View()
+	return m.listModel.View()
 }
 
 func (m *megaCombineModel) logSelectedFiles() {
-	if len(m.selected) == 0 {
+	selectedItems := m.listModel.GetSelectedItems()
+	if len(selectedItems) == 0 {
 		logger.Info("No files selected")
 		m.selectedFiles = []string{}
 		return
 	}
 
-	// Sort selected indices for consistent output
-	indices := make([]int, 0, len(m.selected))
-	for idx := range m.selected {
-		indices = append(indices, idx)
-	}
-	sort.Ints(indices)
-
 	// Collect selected files
-	m.selectedFiles = make([]string, 0, len(indices))
+	m.selectedFiles = make([]string, 0, len(selectedItems))
 	logger.Info("Selected video files:")
-	for _, idx := range indices {
-		filePath := m.items[idx].filePath
-		m.selectedFiles = append(m.selectedFiles, filePath)
-		logger.Info("  " + filePath)
+	for _, item := range selectedItems {
+		if videoItem, ok := item.(*videoFileItem); ok {
+			m.selectedFiles = append(m.selectedFiles, videoItem.filePath)
+			logger.Info("  " + videoItem.filePath)
+		}
 	}
 }
 
