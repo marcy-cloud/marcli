@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -199,18 +200,17 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 			return "No files selected.", nil
 		}
 
-		// In test mode, just output to console (current behavior)
+		// In test mode, show the ffmpeg command that would be run
 		if testMode {
-			var output strings.Builder
-			output.WriteString("Selected video files:\n")
-			for _, file := range m.selectedFiles {
-				output.WriteString("  " + file + "\n")
+			cmd, err := generateFFmpegCommand(m.selectedFiles)
+			if err != nil {
+				return "", err
 			}
-			return output.String(), nil
+			return cmd, nil
 		}
 
-		// Main mode - generate ffmpeg command
-		return generateFFmpegCommand(m.selectedFiles)
+		// Main mode - actually run the ffmpeg command
+		return runFFmpegCommand(m.selectedFiles)
 	}
 
 	return "Video file selection completed. Check logs for selected files.", nil
@@ -239,7 +239,7 @@ func generateFFmpegCommand(selectedFiles []string) (string, error) {
 	// Format: [0:v]setpts=PTS-STARTPTS[v0];[0:a]asetpts=PTS-STARTPTS[a0];...concat=n=N:v=1:a=1[outv][outa]
 	numFiles := len(selectedFiles)
 	var filterComplex strings.Builder
-	
+
 	// Add timestamp normalization for each input
 	for i := 0; i < numFiles; i++ {
 		if i > 0 {
@@ -247,7 +247,7 @@ func generateFFmpegCommand(selectedFiles []string) (string, error) {
 		}
 		filterComplex.WriteString(fmt.Sprintf("[%d:v]setpts=PTS-STARTPTS[v%d];[%d:a]asetpts=PTS-STARTPTS[a%d]", i, i, i, i))
 	}
-	
+
 	// Add concat with normalized streams
 	filterComplex.WriteString(";")
 	for i := 0; i < numFiles; i++ {
@@ -268,4 +268,68 @@ func generateFFmpegCommand(selectedFiles []string) (string, error) {
 	// Prepend "ffmpeg" to the command
 	fullCmd := "ffmpeg" + cmd.String()
 	return fullCmd, nil
+}
+
+// runFFmpegCommand executes the ffmpeg command with the selected files
+func runFFmpegCommand(selectedFiles []string) (string, error) {
+	if len(selectedFiles) == 0 {
+		return "", fmt.Errorf("no files selected")
+	}
+
+	// Build the ffmpeg command arguments
+	var args []string
+
+	// Add all input files with -i flag
+	for _, file := range selectedFiles {
+		// Get absolute path for each file to ensure ffmpeg can find them
+		absFilePath, err := filepath.Abs(file)
+		if err != nil {
+			return "", fmt.Errorf("failed to get absolute path for %s: %w", file, err)
+		}
+		args = append(args, "-i", absFilePath)
+	}
+
+	// Build concat filter complex with timestamp normalization (robust version)
+	numFiles := len(selectedFiles)
+	var filterComplex strings.Builder
+
+	// Add timestamp normalization for each input
+	for i := 0; i < numFiles; i++ {
+		if i > 0 {
+			filterComplex.WriteString(";")
+		}
+		filterComplex.WriteString(fmt.Sprintf("[%d:v]setpts=PTS-STARTPTS[v%d];[%d:a]asetpts=PTS-STARTPTS[a%d]", i, i, i, i))
+	}
+
+	// Add concat with normalized streams
+	filterComplex.WriteString(";")
+	for i := 0; i < numFiles; i++ {
+		filterComplex.WriteString(fmt.Sprintf("[v%d][a%d]", i, i))
+	}
+	filterComplex.WriteString(fmt.Sprintf("concat=n=%d:v=1:a=1[outv][outa]", numFiles))
+
+	// Add filter_complex and other arguments
+	args = append(args, "-filter_complex", filterComplex.String())
+	args = append(args, "-map", "[outv]")
+	args = append(args, "-map", "[outa]")
+	args = append(args, "-c:v", "prores_ks")
+	args = append(args, "-profile:v", "1")
+	args = append(args, "-pix_fmt", "yuv422p10le")
+	args = append(args, "-threads", "0")
+	args = append(args, "-c:a", "pcm_s16le")
+	args = append(args, "-ar", "48000")
+	args = append(args, "-ac", "2")
+	args = append(args, "out.mov")
+
+	// Execute ffmpeg command
+	cmd := exec.Command("ffmpeg", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	logger.Info("Running ffmpeg command to combine videos...")
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("ffmpeg command failed: %w", err)
+	}
+
+	return "Video files successfully combined into out.mov", nil
 }
