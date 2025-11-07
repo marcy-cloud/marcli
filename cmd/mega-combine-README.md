@@ -2,28 +2,56 @@
 
 A super cute command-line tool for selecting and combining multiple video files into a single ProRes file, optimized for DaVinci Resolve on iPad! ✨
 
-The command uses the following ffmpeg settings optimized for DaVinci Resolve on iPad - we're so thoughtful! ✨
+The command uses different ffmpeg settings depending on the mode - we're so flexible! ✨
 
-### Video Encoding
+### Default Mode (GPU-Accelerated) 🎨
+
+**Video Encoding:**
+- **Codec**: `hevc_nvenc` (NVIDIA GPU-accelerated H.265/HEVC) - so fast! 💪
+- **Preset**: `p6` (high quality, balanced speed)
+- **Tune**: `hq` (high quality tuning)
+- **Rate Control**: `vbr_hq` (high quality variable bitrate)
+- **Quality**: `cq 22` (constant quality mode - so efficient! ✨)
+- **Pixel Format**: `p010le` (10-bit)
+- **Profile**: `main10` (H.265 Main 10 profile for 10-bit support)
+
+**Audio Encoding:**
+- **Codec**: `aac` (AAC compression)
+- **Bitrate**: `160 kbps`
+- **Sample Rate**: `48000 Hz`
+- **Channels**: `2` (stereo)
+
+**Output**: `.mp4` files with `+faststart` flag (much smaller than ProRes and ready for web streaming! ✨)
+
+### `--waytoobig` Mode (ProRes) 💖
+
+Use this flag when you need maximum quality for DaVinci Resolve on iPad and don't mind huge file sizes!
+
+**Video Encoding:**
 - **Codec**: `prores_ks` (Apple ProRes)
 - **Profile**: `1` (ProRes LT - Light)
 - **Pixel Format**: `yuv422p10le` (10-bit 4:2:2)
 - **Threads**: `0` (automatic, uses all available CPU cores)
 
-### Audio Encoding
-- **Codec**: `pcm_s16le` (PCM 16-bit little-endian)
+**Audio Encoding:**
+- **Codec**: `pcm_s16le` (PCM 16-bit little-endian, uncompressed)
 - **Sample Rate**: `48000 Hz`
 - **Channels**: `2` (stereo)
 
+**Output**: `.mov` files (way too big but no re-encoding needed in DaVinci Resolve!)
+
 ## Overview 🎀
 
-`mega-combine` provides an interactive TUI (Terminal User Interface) to select video files from the current directory, then combines them into a single ProRes-encoded MOV file - so organized! 💖 This workflow is designed to prepare videos for import into DaVinci Resolve on iPad, avoiding the need for re-encoding on the device. We're so efficient! 🎨
+`mega-combine` provides an interactive TUI (Terminal User Interface) to select video files from the current directory, then combines them into a single video file - so organized! 💖 By default, it uses GPU-accelerated H.265 encoding for efficient, high-quality output. Use the `--waytoobig` flag for ProRes encoding when you need maximum quality for DaVinci Resolve on iPad (but don't mind huge file sizes!). We're so flexible! ✨
 
 ## Usage 💅
 
 ```bash
-# Interactive mode - select files and combine (so cute! ✨)
+# Interactive mode - select files and combine (default: GPU-accelerated H.265) ✨
 marcli mega-combine
+
+# Use ProRes encoding (way too big but high quality for DaVinci Resolve)
+marcli mega-combine --waytoobig
 
 # Preview the ffmpeg command that would be run
 marcli mega-combine --test
@@ -33,12 +61,13 @@ marcli mega-combine --out myvideo
 
 # Combine options - we're so flexible! 💕
 marcli mega-combine --test --out myvideo
+marcli mega-combine --waytoobig --out myvideo.mov
 ```
 
 ## Features 🎀
 
 - **Interactive file selection**: Browse and multi-select video files ordered by modification time - so organized! 💖
-- **Automatic file extension**: If you don't specify `.mov` in the output filename, it's added automatically - we're so helpful! ✨
+- **Automatic file extension**: If you don't specify an extension, `.mp4` is added by default (or `.mov` with `--waytoobig`) - we're so helpful! ✨
 - **Preview mode**: Use `--test` to see the exact ffmpeg command before running - safety first! 💅
 - **Robust concatenation**: Uses timestamp normalization to handle variable frame rates and mismatched start times - so reliable! 🎨
 
@@ -58,10 +87,22 @@ The command uses a robust concatenation approach with timestamp normalization:
 
 ### Why These Settings? 💕
 
-- **ProRes LT**: Provides excellent quality while keeping file sizes reasonable - so efficient! ✨ DaVinci Resolve on iPad natively supports ProRes, so no re-encoding is needed on import. We're so smart! 💖
-- **10-bit 4:2:2**: Maintains color depth and chroma subsampling suitable for professional editing while being more efficient than 4:4:4 - perfect balance! 🎨
-- **PCM Audio**: Uncompressed audio ensures no quality loss and is fully compatible with DaVinci Resolve - zero compromises! 💅
-- **Timestamp Normalization**: The robust concatenation method ensures smooth playback and editing in DaVinci Resolve, even when source files have different frame rates or start times - so reliable! 🎀
+**Default Mode (NVENC H.265):**
+- **GPU Acceleration**: Uses your NVIDIA GPU (like the RTX 5090!) for super fast encoding - so efficient! 💪
+- **H.265/HEVC**: Modern codec with excellent compression - much smaller files than ProRes! ✨
+- **Constant Quality (CQ 22)**: Uses quality-based encoding instead of fixed bitrate - automatically adjusts bitrate to maintain quality while keeping files small - perfect balance! 🎨
+- **10-bit Color**: `p010le` pixel format with Main 10 profile for better color depth - so fancy! 💅
+- **Fast Start**: `+faststart` flag allows playback to begin before download completes - perfect for web streaming! 🎀
+- **AAC Audio**: Compressed but high-quality audio (160 kbps) that's much smaller than PCM - so smart! 💖
+
+**`--waytoobig` Mode (ProRes):**
+- **ProRes LT**: Provides excellent quality but creates huge files - way too big! 💅 DaVinci Resolve on iPad natively supports ProRes, so no re-encoding is needed on import. We're so thoughtful! 💖
+- **10-bit 4:2:2**: Maintains color depth and chroma subsampling suitable for professional editing - zero compromises! 🎀
+- **PCM Audio**: Uncompressed audio ensures no quality loss - maximum quality! ✨
+- **Use when**: You need maximum quality and don't mind waiting for huge file transfers! 💕
+
+**Both Modes:**
+- **Timestamp Normalization**: The robust concatenation method ensures smooth playback and editing, even when source files have different frame rates or start times - so reliable! 🎨
 
 ## Workflow 🎀
 

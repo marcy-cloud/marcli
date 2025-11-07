@@ -205,21 +205,31 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 			return "No files selected.", nil
 		}
 
-		// Get output filename from context, default to "out.mov"
-		outputFile := "out.mov"
+		// Get output filename from context, default to "out.mov" or "out.mp4"
+		wayTooBig := ctx.Value("megaCombineWayTooBig") == true
+		outputFile := "out.mp4"
+		if wayTooBig {
+			outputFile = "out.mov"
+		}
 		if outFile := ctx.Value("megaCombineOutput"); outFile != nil {
 			if outFileStr, ok := outFile.(string); ok && outFileStr != "" {
 				outputFile = outFileStr
-				// Add .mov extension if not provided
-				if !strings.HasSuffix(strings.ToLower(outputFile), ".mov") {
-					outputFile = outputFile + ".mov"
+				// Add extension if not provided
+				if wayTooBig {
+					if !strings.HasSuffix(strings.ToLower(outputFile), ".mov") {
+						outputFile = outputFile + ".mov"
+					}
+				} else {
+					if !strings.HasSuffix(strings.ToLower(outputFile), ".mp4") {
+						outputFile = outputFile + ".mp4"
+					}
 				}
 			}
 		}
 
 		// In test mode, show the ffmpeg command that would be run
 		if testMode {
-			cmd, err := generateFFmpegCommand(m.selectedFiles, outputFile)
+			cmd, err := generateFFmpegCommand(m.selectedFiles, outputFile, wayTooBig)
 			if err != nil {
 				return "", err
 			}
@@ -227,14 +237,14 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 		}
 
 		// Main mode - actually run the ffmpeg command
-		return runFFmpegCommand(m.selectedFiles, outputFile)
+		return runFFmpegCommand(m.selectedFiles, outputFile, wayTooBig)
 	}
 
 	return "Video file selection completed. Check logs for selected files.", nil
 }
 
 // generateFFmpegCommand creates an ffmpeg command using the selected files without a filelist
-func generateFFmpegCommand(selectedFiles []string, outputFile string) (string, error) {
+func generateFFmpegCommand(selectedFiles []string, outputFile string, wayTooBig bool) (string, error) {
 	if len(selectedFiles) == 0 {
 		return "", fmt.Errorf("no files selected")
 	}
@@ -278,8 +288,19 @@ func generateFFmpegCommand(selectedFiles []string, outputFile string) (string, e
 	cmd.WriteString(filterComplex.String())
 	cmd.WriteString("\" \\\n")
 	cmd.WriteString("  -map \"[outv]\" -map \"[outa]\" \\\n")
-	cmd.WriteString("  -c:v prores_ks -profile:v 1 -pix_fmt yuv422p10le -threads 0 \\\n")
-	cmd.WriteString("  -c:a pcm_s16le -ar 48000 -ac 2 \\\n")
+
+	if wayTooBig {
+		// ProRes LT - way too big but high quality for DaVinci Resolve
+		cmd.WriteString("  -c:v prores_ks -profile:v 1 -pix_fmt yuv422p10le -threads 0 \\\n")
+		cmd.WriteString("  -c:a pcm_s16le -ar 48000 -ac 2 \\\n")
+	} else {
+		// Default: NVENC H.265 - GPU accelerated, efficient encoding
+		cmd.WriteString("  -c:v hevc_nvenc -preset p6 -tune hq -rc vbr_hq -cq 22 -b:v 0 -maxrate 0 \\\n")
+		cmd.WriteString("  -pix_fmt p010le -profile:v main10 \\\n")
+		cmd.WriteString("  -c:a aac -b:a 160k -ar 48000 -ac 2 \\\n")
+		cmd.WriteString("  -movflags +faststart \\\n")
+	}
+
 	cmd.WriteString(fmt.Sprintf("  \"%s\"", outputFile))
 
 	// Prepend "ffmpeg" to the command
@@ -288,7 +309,7 @@ func generateFFmpegCommand(selectedFiles []string, outputFile string) (string, e
 }
 
 // runFFmpegCommand executes the ffmpeg command with the selected files
-func runFFmpegCommand(selectedFiles []string, outputFile string) (string, error) {
+func runFFmpegCommand(selectedFiles []string, outputFile string, wayTooBig bool) (string, error) {
 	if len(selectedFiles) == 0 {
 		return "", fmt.Errorf("no files selected")
 	}
@@ -329,13 +350,34 @@ func runFFmpegCommand(selectedFiles []string, outputFile string) (string, error)
 	args = append(args, "-filter_complex", filterComplex.String())
 	args = append(args, "-map", "[outv]")
 	args = append(args, "-map", "[outa]")
-	args = append(args, "-c:v", "prores_ks")
-	args = append(args, "-profile:v", "1")
-	args = append(args, "-pix_fmt", "yuv422p10le")
-	args = append(args, "-threads", "0")
-	args = append(args, "-c:a", "pcm_s16le")
-	args = append(args, "-ar", "48000")
-	args = append(args, "-ac", "2")
+
+	if wayTooBig {
+		// ProRes LT - way too big but high quality for DaVinci Resolve
+		args = append(args, "-c:v", "prores_ks")
+		args = append(args, "-profile:v", "1")
+		args = append(args, "-pix_fmt", "yuv422p10le")
+		args = append(args, "-threads", "0")
+		args = append(args, "-c:a", "pcm_s16le")
+		args = append(args, "-ar", "48000")
+		args = append(args, "-ac", "2")
+	} else {
+		// Default: NVENC H.265 - GPU accelerated, efficient encoding
+		args = append(args, "-c:v", "hevc_nvenc")
+		args = append(args, "-preset", "p6")        // Quality preset (p1=fastest, p7=slowest/highest quality)
+		args = append(args, "-tune", "hq")          // High quality tuning
+		args = append(args, "-rc", "vbr_hq")        // High quality variable bitrate
+		args = append(args, "-cq", "22")            // Constant quality level (lower = higher quality, 18-28 range)
+		args = append(args, "-b:v", "0")            // Bitrate 0 when using CQ mode
+		args = append(args, "-maxrate", "0")        // Max rate 0 when using CQ mode
+		args = append(args, "-pix_fmt", "p010le")   // 10-bit pixel format
+		args = append(args, "-profile:v", "main10") // H.265 Main 10 profile for 10-bit
+		args = append(args, "-c:a", "aac")
+		args = append(args, "-b:a", "160k") // Audio bitrate
+		args = append(args, "-ar", "48000")
+		args = append(args, "-ac", "2")
+		args = append(args, "-movflags", "+faststart") // Fast start for web streaming
+	}
+
 	args = append(args, outputFile)
 
 	// Execute ffmpeg command directly in the terminal

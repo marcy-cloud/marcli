@@ -21,6 +21,7 @@ func initCommands() {
 	commandRegistry["build"] = cmd.RunBuild
 	commandRegistry["version"] = cmd.RunVersion
 	commandRegistry["mega-combine"] = cmd.RunMegaCombine
+	commandRegistry["cutiepie"] = cmd.RunCutiepieTUICommand
 }
 
 func main() {
@@ -53,6 +54,8 @@ func main() {
 				} else if args[i] == "--out" && i+1 < len(args) {
 					ctx = context.WithValue(ctx, "megaCombineOutput", args[i+1])
 					i++ // Skip the next argument since we consumed it
+				} else if args[i] == "--waytoobig" {
+					ctx = context.WithValue(ctx, "megaCombineWayTooBig", true)
 				}
 			}
 		}
@@ -68,8 +71,8 @@ func main() {
 		return
 	}
 
-	// TUI mode: no args, show the cute interactive menu (default) 🎀
-	if err := cmd.RunTUI(); err != nil {
+	// TUI mode: no args, show the cutiepie interactive menu (default) 🎀
+	if err := cmd.RunCutiepieTUI(); err != nil {
 		logger.Fatal("error", "err", err)
 	}
 }

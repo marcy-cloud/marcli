@@ -178,8 +178,8 @@ func (m *tuiModel) GetSelectedCommand() *commandItem {
 	return m.selectedCommand
 }
 
-// RunTUI starts the interactive TUI - so cute and interactive! 🎀
-func RunTUI() error {
+// RunCutiepieTUI starts the interactive cutiepie TUI - so cute and interactive! 🎀
+func RunCutiepieTUI() error {
 	model := initialTuiModel()
 	p := tea.NewProgram(&model, tea.WithAltScreen())
 	finalModel, err := p.Run()
@@ -207,4 +207,13 @@ func RunTUI() error {
 	}
 
 	return nil
+}
+
+// RunCutiepieTUICommand is a wrapper that matches the command registry signature - so organized! ✨
+func RunCutiepieTUICommand(ctx context.Context) (string, error) {
+	err := RunCutiepieTUI()
+	if err != nil {
+		return "", err
+	}
+	return "", nil
 }
