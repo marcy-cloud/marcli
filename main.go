@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"runtime"
 	"time"
+
+	"marcli/cmd"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -55,19 +55,19 @@ func initCommands() {
 			name:  "go-echo",
 			title: "Golang echo",
 			desc:  `Echo "Golang echo" using native Go code`,
-			run:   runGoEcho,
+			run:   cmd.RunGoEcho,
 		},
 		{
 			name:  "ps-echo",
 			title: "PowerShell echo",
 			desc:  `Echo "Powershell echo" by launching PowerShell`,
-			run:   runPSEcho,
+			run:   cmd.RunPSEcho,
 		},
 		{
 			name:  "bash-echo",
 			title: "Bash echo",
 			desc:  `Echo "Bash echo" via bash (or sh)`,
-			run:   runBashEcho,
+			run:   cmd.RunBashEcho,
 		},
 	}
 
@@ -104,19 +104,19 @@ func initialModel() model {
 			name:  "go-echo",
 			title: "Golang echo",
 			desc:  `Echo "Golang echo" using native Go code`,
-			run:   runGoEcho,
+			run:   cmd.RunGoEcho,
 		},
 		menuItem{
 			name:  "ps-echo",
 			title: "PowerShell echo",
 			desc:  `Echo "Powershell echo" by launching PowerShell`,
-			run:   runPSEcho,
+			run:   cmd.RunPSEcho,
 		},
 		menuItem{
 			name:  "bash-echo",
 			title: "Bash echo",
 			desc:  `Echo "Bash echo" via bash (or sh)`,
-			run:   runBashEcho,
+			run:   cmd.RunBashEcho,
 		},
 	}
 
@@ -141,69 +141,6 @@ func initialModel() model {
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(m.spin.Tick, nil)
-}
-
-/* ---------- command runners (separate functions) ---------- */
-
-func runGoEcho(ctx context.Context) (string, error) {
-	// Pure Go — no external process.
-	logger.Info("Running Go echo")
-	return "Golang echo", nil
-}
-
-func runPSEcho(ctx context.Context) (string, error) {
-	// Prefer PowerShell 7+ if available
-	ps := "pwsh"
-	if _, err := exec.LookPath(ps); err != nil {
-		// Fallbacks
-		if runtime.GOOS == "windows" {
-			ps = "powershell.exe"
-		} else {
-			// Non-Windows without pwsh installed
-			return "", fmt.Errorf("PowerShell (pwsh) not found. Install from https://github.com/PowerShell/PowerShell")
-		}
-	}
-	args := []string{"-NoLogo", "-NoProfile"}
-	if runtime.GOOS == "windows" {
-		args = append(args, "-ExecutionPolicy", "Bypass")
-	}
-	args = append(args, "-Command", "Write-Output 'Powershell echo'")
-
-	var out, errBuf bytes.Buffer
-	cmd := exec.CommandContext(ctx, ps, args...)
-	cmd.Stdout = &out
-	cmd.Stderr = &errBuf
-	err := cmd.Run()
-	if errBuf.Len() > 0 {
-		out.WriteString("\n" + errBuf.String())
-	}
-	return out.String(), err
-}
-
-func runBashEcho(ctx context.Context) (string, error) {
-	// Try bash; fallback to sh if present (Linux/macOS). On Windows, suggest Git Bash/WSL.
-	if _, err := exec.LookPath("bash"); err == nil {
-		return runShell(ctx, "bash", []string{"-lc", "echo 'Bash echo'"})
-	}
-	if _, err := exec.LookPath("sh"); err == nil {
-		return runShell(ctx, "sh", []string{"-lc", "echo 'Bash echo'"})
-	}
-	if runtime.GOOS == "windows" {
-		return "", fmt.Errorf("bash not found. Install Git Bash (Git for Windows) or enable WSL.")
-	}
-	return "", fmt.Errorf("neither bash nor sh found in PATH")
-}
-
-func runShell(ctx context.Context, bin string, args []string) (string, error) {
-	var out, errBuf bytes.Buffer
-	cmd := exec.CommandContext(ctx, bin, args...)
-	cmd.Stdout = &out
-	cmd.Stderr = &errBuf
-	err := cmd.Run()
-	if errBuf.Len() > 0 {
-		out.WriteString("\n" + errBuf.String())
-	}
-	return out.String(), err
 }
 
 /* ---------- tea update/view ---------- */
