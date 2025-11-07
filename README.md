@@ -23,16 +23,17 @@ Here are all the cute commands available:
 - `build` - Build for all platforms (macOS, Linux, Windows) and install to PATH - building everything with love! 💖
 - `version` - Show version and build number - so organized! ✨
 - `-v` / `--version` - Quick version check (aliases for `version`) - we're so flexible! 💅
+- `mega-combine` - Select and combine video files into ProRes for DaVinci Resolve on iPad - so efficient! 🎨 See [cmd/mega-combine-README.md](cmd/mega-combine-README.md) for details! 💕
 
 ## Quick Start 💖
 
 Just run `marcli` with no args to see the cute TUI, or use commands directly:
 
 ```bash
-marcli version    # See the version (so fancy!)
-marcli build      # Build everything! 💪
-marcli -v         # Quick version check ✨
-marcli go-echo    # Try a command! 🎀
+marcli mega-combine   # Combine videos for DaVinci Resolve! 🎨
+marcli version        # See the version (so fancy!)
+marcli build          # Build everything! 💪
+marcli go-echo        # Try a command! 🎀
 ```
 
 Enjoy! 💕
