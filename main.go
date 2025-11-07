@@ -31,6 +31,12 @@ func main() {
 	// CLI mode: if args provided, run command directly
 	if len(args) > 0 {
 		cmdName := args[0]
+
+		// Handle flag aliases
+		if cmdName == "-v" || cmdName == "--version" {
+			cmdName = "version"
+		}
+
 		cmd, exists := commandRegistry[cmdName]
 		if !exists {
 			logger.Fatal("unknown command", "command", cmdName)
