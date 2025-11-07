@@ -199,3 +199,17 @@ func (m *Model) IsQuitting() bool {
 	return m.quitting
 }
 
+// GetCurrentIndex returns the index of the currently highlighted item
+func (m *Model) GetCurrentIndex() int {
+	return m.list.Index()
+}
+
+// GetCurrentItem returns the currently highlighted item
+func (m *Model) GetCurrentItem() SelectableItem {
+	idx := m.list.Index()
+	if idx >= 0 && idx < len(m.items) {
+		return m.items[idx]
+	}
+	return nil
+}
+

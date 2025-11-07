@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
-	logger "github.com/charmbracelet/log"
 	"marcli/ui"
+
 	tea "github.com/charmbracelet/bubbletea"
+	logger "github.com/charmbracelet/log"
 )
 
 // videoFileItem represents a video file in the list
@@ -41,8 +42,8 @@ func (i videoFileItem) DisplayText() string {
 
 // megaCombineModel manages the state of the mega-combine TUI
 type megaCombineModel struct {
-	listModel   *ui.Model
-	items       []*videoFileItem
+	listModel     *ui.Model
+	items         []*videoFileItem
 	selectedFiles []string // Store selected file paths for return
 }
 
@@ -194,7 +195,7 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 		if len(m.selectedFiles) == 0 {
 			return "No files selected.", nil
 		}
-		
+
 		var output strings.Builder
 		output.WriteString("Selected video files:\n")
 		for _, file := range m.selectedFiles {
@@ -205,4 +206,3 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 
 	return "Video file selection completed. Check logs for selected files.", nil
 }
-
