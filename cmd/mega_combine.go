@@ -333,15 +333,22 @@ func runFFmpegCommand(selectedFiles []string, outputFile string) (string, error)
 	args = append(args, "-ac", "2")
 	args = append(args, outputFile)
 
-	// Execute ffmpeg command
+	// Execute ffmpeg command directly in the terminal
+	// The TUI has already exited and restored the terminal, so this will run in the normal terminal
 	cmd := exec.Command("ffmpeg", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin // Allow interactive input (like 'q' to quit)
 
-	logger.Info("Running ffmpeg command to combine videos...")
+	// Print a brief message before starting (to stderr so it doesn't interfere with ffmpeg output)
+	fmt.Fprintf(os.Stderr, "Running ffmpeg to combine %d video file(s) into %s...\n", len(selectedFiles), outputFile)
+	fmt.Fprintf(os.Stderr, "Press 'q' during encoding to quit.\n\n")
+
+	// Run the command - this will output directly to the terminal in real-time
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ffmpeg command failed: %w", err)
 	}
 
-	return fmt.Sprintf("Video files successfully combined into %s", outputFile), nil
+	// Success message after completion
+	return fmt.Sprintf("\nVideo files successfully combined into %s\n", outputFile), nil
 }
