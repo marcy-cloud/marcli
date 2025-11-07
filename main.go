@@ -1,0 +1,260 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"runtime"
+	"time"
+
+	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+/* ---------- styling ---------- */
+
+var (
+	titleStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212")) // cyan-ish
+	subtleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
+	okStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	borderStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0, 1)
+	headerStyle = lipgloss.NewStyle().Padding(0, 1)
+	footerStyle = lipgloss.NewStyle().Faint(true)
+	itemTitle   = lipgloss.NewStyle().Bold(true)
+	itemDesc    = lipgloss.NewStyle().Faint(true)
+	appName     = "Charm Bubble Tea — Command Launcher"
+)
+
+/* ---------- menu items ---------- */
+
+type menuItem struct {
+	title string
+	desc  string
+	run   func(context.Context) (string, error)
+}
+
+func (i menuItem) Title() string       { return itemTitle.Render(i.title) }
+func (i menuItem) Description() string { return itemDesc.Render(i.desc) }
+func (i menuItem) FilterValue() string { return i.title }
+
+/* ---------- model ---------- */
+
+type model struct {
+	osFlavor string
+
+	menu    list.Model
+	view    viewport.Model
+	spin    spinner.Model
+	running bool
+	cancel  context.CancelFunc
+}
+
+type outputMsg struct {
+	out string
+	err error
+}
+
+func initialModel() model {
+	osFlavor := "Linux"
+	if runtime.GOOS == "windows" {
+		osFlavor = "Windows"
+	}
+
+	items := []list.Item{
+		menuItem{
+			title: "Golang echo",
+			desc:  `Echo "Golang echo" using native Go code`,
+			run:   runGoEcho,
+		},
+		menuItem{
+			title: "PowerShell echo",
+			desc:  `Echo "Powershell echo" by launching PowerShell`,
+			run:   runPSEcho,
+		},
+		menuItem{
+			title: "Bash echo",
+			desc:  `Echo "Bash echo" via bash (or sh)`,
+			run:   runBashEcho,
+		},
+	}
+
+	l := list.New(items, list.NewDefaultDelegate(), 36, 10)
+	l.Title = "Pick a command and press Enter"
+	l.SetShowHelp(false)
+	l.SetFilteringEnabled(false)
+
+	vp := viewport.New(0, 0)
+	vp.SetContent("Ready.\n")
+
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+
+	return model{
+		osFlavor: osFlavor,
+		menu:     l,
+		view:     vp,
+		spin:     sp,
+	}
+}
+
+func (m model) Init() tea.Cmd {
+	return tea.Batch(spinner.Tick, nil)
+}
+
+/* ---------- command runners (separate functions) ---------- */
+
+func runGoEcho(ctx context.Context) (string, error) {
+	// Pure Go — no external process.
+	time.Sleep(100 * time.Millisecond)
+	return "Golang echo", nil
+}
+
+func runPSEcho(ctx context.Context) (string, error) {
+	// Prefer PowerShell 7+ if available
+	ps := "pwsh"
+	if _, err := exec.LookPath(ps); err != nil {
+		// Fallbacks
+		if runtime.GOOS == "windows" {
+			ps = "powershell.exe"
+		} else {
+			// Non-Windows without pwsh installed
+			return "", fmt.Errorf("PowerShell (pwsh) not found. Install from https://github.com/PowerShell/PowerShell")
+		}
+	}
+	args := []string{"-NoLogo", "-NoProfile"}
+	if runtime.GOOS == "windows" {
+		args = append(args, "-ExecutionPolicy", "Bypass")
+	}
+	args = append(args, "-Command", "Write-Output 'Powershell echo'")
+
+	var out, errBuf bytes.Buffer
+	cmd := exec.CommandContext(ctx, ps, args...)
+	cmd.Stdout = &out
+	cmd.Stderr = &errBuf
+	err := cmd.Run()
+	if errBuf.Len() > 0 {
+		out.WriteString("\n" + errBuf.String())
+	}
+	return out.String(), err
+}
+
+func runBashEcho(ctx context.Context) (string, error) {
+	// Try bash; fallback to sh if present (Linux/macOS). On Windows, suggest Git Bash/WSL.
+	if _, err := exec.LookPath("bash"); err == nil {
+		return runShell(ctx, "bash", []string{"-lc", "echo 'Bash echo'"})
+	}
+	if _, err := exec.LookPath("sh"); err == nil {
+		return runShell(ctx, "sh", []string{"-lc", "echo 'Bash echo'"})
+	}
+	if runtime.GOOS == "windows" {
+		return "", fmt.Errorf("bash not found. Install Git Bash (Git for Windows) or enable WSL.")
+	}
+	return "", fmt.Errorf("neither bash nor sh found in PATH")
+}
+
+func runShell(ctx context.Context, bin string, args []string) (string, error) {
+	var out, errBuf bytes.Buffer
+	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Stdout = &out
+	cmd.Stderr = &errBuf
+	err := cmd.Run()
+	if errBuf.Len() > 0 {
+		out.WriteString("\n" + errBuf.String())
+	}
+	return out.String(), err
+}
+
+/* ---------- tea update/view ---------- */
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			if m.running {
+				return m, nil
+			}
+			if it, ok := m.menu.SelectedItem().(menuItem); ok {
+				// start run
+				if m.cancel != nil {
+					m.cancel()
+				}
+				ctx, cancel := context.WithCancel(context.Background())
+				m.cancel = cancel
+				m.running = true
+				m.view.SetContent(m.view.View() + headerStyle.Render("> "+it.title) + "\n")
+				return m, tea.Batch(m.spin.Tick, func() tea.Msg {
+					start := time.Now()
+					out, err := it.run(ctx)
+					elapsed := time.Since(start)
+					if out == "" {
+						out = "(no output)"
+					}
+					out = fmt.Sprintf("%s\n\n%s (%.2fs)\n",
+						out, okStyle.Render("Done"), elapsed.Seconds())
+					return outputMsg{out: out, err: err}
+				})
+			}
+		case "ctrl+c":
+			if m.running && m.cancel != nil {
+				m.cancel()
+				m.running = false
+				m.view.SetContent(m.view.View() + errorStyle.Render("Cancelled.") + "\n")
+				return m, nil
+			}
+			return m, tea.Quit
+		}
+
+	case outputMsg:
+		m.running = false
+		if msg.err != nil {
+			m.view.SetContent(m.view.View() + errorStyle.Render(msg.out+"\n"+msg.err.Error()) + "\n")
+		} else {
+			m.view.SetContent(m.view.View() + msg.out + "\n")
+		}
+		return m, nil
+
+	case tea.WindowSizeMsg:
+		// layout
+		m.menu.SetWidth(msg.Width / 2)
+		m.view.Width = msg.Width - m.menu.Width() - 4
+		m.view.Height = msg.Height - 5
+		return m, nil
+
+	case spinner.TickMsg:
+		if m.running {
+			var cmd tea.Cmd
+			m.spin, cmd = m.spin.Update(msg)
+			return m, cmd
+		}
+	}
+	var cmd tea.Cmd
+	m.menu, cmd = m.menu.Update(msg)
+	return m, cmd
+}
+
+func (m model) View() string {
+	header := titleStyle.Render(appName) +
+		"  " + subtleStyle.Render(fmt.Sprintf("[%s]", m.osFlavor)) + "\n"
+	body := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		borderStyle.Width(m.menu.Width()).Height(m.view.Height+2).Render(m.menu.View()),
+		borderStyle.Width(m.view.Width).Height(m.view.Height+2).Render(m.view.View()),
+	)
+	foot := footerStyle.Render("\nEnter: run • Ctrl+C: cancel/quit\n")
+	return header + body + foot
+}
+
+func main() {
+	if err := tea.NewProgram(initialModel(), tea.WithAltScreen()).Start(); err != nil {
+		fmt.Println("error:", err)
+		os.Exit(1)
+	}
+}
