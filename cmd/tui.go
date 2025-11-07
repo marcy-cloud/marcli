@@ -89,6 +89,12 @@ func initialTuiModel() tuiModel {
 			desc:  `Run go build`,
 			run:   RunBuild,
 		},
+		menuItem{
+			name:  "version",
+			title: "Version",
+			desc:  `Show version and build number`,
+			run:   RunVersion,
+		},
 	}
 
 	l := list.New(items, list.NewDefaultDelegate(), 36, 10)
@@ -200,4 +206,3 @@ func (m tuiModel) View() string {
 func RunTUI() error {
 	return tea.NewProgram(initialTuiModel(), tea.WithAltScreen()).Start()
 }
-

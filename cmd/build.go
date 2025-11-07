@@ -14,7 +14,21 @@ import (
 
 // RunBuild runs go build for macOS, Linux, and Windows.
 func RunBuild(ctx context.Context) (string, error) {
+	// Increment build number
+	if err := IncrementBuild(); err != nil {
+		return "", fmt.Errorf("failed to increment build number: %w", err)
+	}
+
+	// Load and display version info
+	config, err := LoadConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to load config: %w", err)
+	}
+
 	var results []string
+	results = append(results, fmt.Sprintf("Building version %s (build %d)", config.Version, config.Build))
+	results = append(results, "")
+
 	var allErrors []string
 
 	// Build targets: [GOOS, GOARCH, output suffix]
@@ -38,11 +52,11 @@ func RunBuild(ctx context.Context) (string, error) {
 		outputName := filepath.Join(releasesDir, fmt.Sprintf("marcli-%s", suffix))
 
 		var out, errBuf bytes.Buffer
-		cmd := exec.CommandContext(ctx, "go", "build", "-o", outputName)
-		cmd.Env = append(os.Environ(), fmt.Sprintf("GOOS=%s", goos), fmt.Sprintf("GOARCH=%s", goarch))
-		cmd.Stdout = &out
-		cmd.Stderr = &errBuf
-		err := cmd.Run()
+		buildCmd := exec.CommandContext(ctx, "go", "build", "-o", outputName)
+		buildCmd.Env = append(os.Environ(), fmt.Sprintf("GOOS=%s", goos), fmt.Sprintf("GOARCH=%s", goarch))
+		buildCmd.Stdout = &out
+		buildCmd.Stderr = &errBuf
+		err := buildCmd.Run()
 
 		if err != nil {
 			errorMsg := fmt.Sprintf("%s/%s: FAILED - %s", goos, goarch, strings.TrimSpace(errBuf.String()))
@@ -62,10 +76,10 @@ func RunBuild(ctx context.Context) (string, error) {
 	}
 
 	var out, errBuf bytes.Buffer
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", finalName)
-	cmd.Stdout = &out
-	cmd.Stderr = &errBuf
-	err := cmd.Run()
+	buildCmd := exec.CommandContext(ctx, "go", "build", "-o", finalName)
+	buildCmd.Stdout = &out
+	buildCmd.Stderr = &errBuf
+	err = buildCmd.Run()
 
 	if err != nil {
 		errorMsg := fmt.Sprintf("current platform (%s/%s): FAILED - %s", runtime.GOOS, runtime.GOARCH, strings.TrimSpace(errBuf.String()))
@@ -190,8 +204,8 @@ func addToWindowsPath(dir string) error {
 		}
 	`, dir)
 
-	cmd := exec.Command("powershell", "-Command", psScript)
-	if err := cmd.Run(); err != nil {
+	psCmd := exec.Command("powershell", "-Command", psScript)
+	if err := psCmd.Run(); err != nil {
 		// Fallback to setx if PowerShell fails
 		pathEnv := os.Getenv("PATH")
 		newPath := pathEnv + string(os.PathListSeparator) + dir

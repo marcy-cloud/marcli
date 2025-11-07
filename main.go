@@ -19,6 +19,7 @@ func initCommands() {
 	commandRegistry["ps-echo"] = cmd.RunPSEcho
 	commandRegistry["bash-echo"] = cmd.RunBashEcho
 	commandRegistry["build"] = cmd.RunBuild
+	commandRegistry["version"] = cmd.RunVersion
 }
 
 func main() {
