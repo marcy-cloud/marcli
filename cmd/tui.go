@@ -40,6 +40,7 @@ type tuiModel struct {
 	items     []*commandItem
 	selectedCommand *commandItem
 	quitting  bool
+	cancelled bool // True if user pressed Ctrl+C
 }
 
 func initialTuiModel() tuiModel {
@@ -114,6 +115,13 @@ func (m *tuiModel) Init() tea.Cmd {
 }
 
 func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle Ctrl+C before it reaches the list model
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "ctrl+c" {
+		m.cancelled = true
+		m.quitting = true
+		return m, tea.Quit
+	}
+
 	// Handle spacebar before it reaches the list model - treat it like Enter
 	if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == " " {
 		// Get the currently highlighted command and select it
@@ -130,6 +138,13 @@ func (m *tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Update the list model
 	updatedModel, cmd := m.listModel.Update(msg)
 	m.listModel = updatedModel.(*ui.Model)
+
+	// Check if list was cancelled
+	if m.listModel.IsCancelled() {
+		m.cancelled = true
+		m.quitting = true
+		return m, tea.Quit
+	}
 
 	// If user confirmed (Enter), get the selected command
 	if m.listModel.IsQuitting() {
@@ -172,8 +187,12 @@ func RunTUI() error {
 		return err
 	}
 
-	// Run the selected command
+	// Run the selected command only if not cancelled
 	if tuiModel, ok := finalModel.(*tuiModel); ok {
+		// Don't run command if user pressed Ctrl+C
+		if tuiModel.cancelled {
+			return nil
+		}
 		cmd := tuiModel.GetSelectedCommand()
 		if cmd != nil {
 			ctx := context.Background()

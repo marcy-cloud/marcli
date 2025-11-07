@@ -40,13 +40,13 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		return
 	}
 
-	// Format: [✓] display text
-	checkmark := " "
+	// Format: 💖 display text (when selected) or 💕 display text (when not selected)
+	emoji := "💕"
 	if item.IsSelected() {
-		checkmark = "✓"
+		emoji = "💖"
 	}
 	
-	str := fmt.Sprintf("[%s] %s", checkmark, item.DisplayText())
+	str := fmt.Sprintf("%s %s", emoji, item.DisplayText())
 
 	fn := itemStyle.Render
 	if index == m.Index() {
@@ -60,10 +60,11 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 // Model represents a selectable list model
 type Model struct {
-	list     list.Model
-	items    []SelectableItem
-	selected map[int]struct{}
-	quitting bool
+	list      list.Model
+	items     []SelectableItem
+	selected  map[int]struct{}
+	quitting  bool
+	cancelled bool // True if user pressed Ctrl+C to quit
 }
 
 // Config holds configuration for creating a selectable list
@@ -126,6 +127,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch keyMsg.String() {
 		case "ctrl+c":
 			m.quitting = true
+			m.cancelled = true // Mark as cancelled so commands don't run
 			return m, tea.Quit
 
 		case " ":
@@ -197,6 +199,11 @@ func (m *Model) GetSelectedItems() []SelectableItem {
 // IsQuitting returns whether the user has quit the list
 func (m *Model) IsQuitting() bool {
 	return m.quitting
+}
+
+// IsCancelled returns whether the user cancelled with Ctrl+C
+func (m *Model) IsCancelled() bool {
+	return m.cancelled
 }
 
 // GetCurrentIndex returns the index of the currently highlighted item

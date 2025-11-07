@@ -196,6 +196,11 @@ func RunMegaCombine(ctx context.Context) (string, error) {
 
 	// Get the final model and extract selected files
 	if m, ok := finalModel.(*megaCombineModel); ok {
+		// Check if user cancelled with Ctrl+C
+		if m.listModel.IsCancelled() {
+			return "", nil // Exit silently if cancelled
+		}
+
 		if len(m.selectedFiles) == 0 {
 			return "No files selected.", nil
 		}
