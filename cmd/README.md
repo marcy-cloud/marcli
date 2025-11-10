@@ -17,17 +17,17 @@ We keep this list updated as we add new commands - so organized! 💅
 **Usage:** `marcli build`
 
 ### bash-echo 🎀
-**File:** `bash_echo.go`  
+**File:** `bash-echo.go`  
 **Description:** Echo using bash/sh - classic and cute! 🎀  
 **Usage:** `marcli bash-echo`
 
 ### ps-echo 💪
-**File:** `ps_echo.go`  
+**File:** `ps-echo.go`  
 **Description:** Echo using PowerShell - so powerful! 💪  
 **Usage:** `marcli ps-echo`
 
 ### go-echo 💕
-**File:** `go_echo.go`  
+**File:** `go-echo.go`  
 **Description:** Echo using pure Go (no external processes) - so clean! 💕  
 **Usage:** `marcli go-echo`
 
