@@ -41,6 +41,7 @@ func StartServer(port int) error {
 
 func handleWebSocket(ws *websocket.Conn) {
 	defer ws.Close()
+	log.Printf("WebSocket connection established")
 
 	// Close existing PTY and create new one
 	ptyMutex.Lock()
@@ -53,6 +54,7 @@ func handleWebSocket(ws *websocket.Conn) {
 		log.Printf("Failed to start PTY: %v", err)
 		return
 	}
+	log.Printf("PTY started successfully")
 
 	// Set initial terminal size (80x24 is a common default)
 	if err := currentPTY.Resize(80, 24); err != nil {
@@ -62,6 +64,7 @@ func handleWebSocket(ws *websocket.Conn) {
 
 	// Clean up on exit
 	defer func() {
+		log.Printf("WebSocket connection closing, cleaning up PTY")
 		ptyMutex.Lock()
 		if currentPTY != nil {
 			currentPTY.Close()
@@ -71,20 +74,57 @@ func handleWebSocket(ws *websocket.Conn) {
 	}()
 
 	// Channel to signal when copying is done
-	done := make(chan bool)
+	done := make(chan bool, 2)
 
 	// Copy from PTY to WebSocket (terminal output -> browser)
 	go func() {
-		io.Copy(ws, currentPTY)
-		done <- true
+		buf := make([]byte, 32*1024)
+		for {
+			n, err := currentPTY.Read(buf)
+			if n > 0 {
+				if _, writeErr := ws.Write(buf[:n]); writeErr != nil {
+					log.Printf("Error writing to WebSocket: %v", writeErr)
+					done <- true
+					return
+				}
+			}
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("Error reading from PTY: %v", err)
+				} else {
+					log.Printf("PTY closed (EOF)")
+				}
+				done <- true
+				return
+			}
+		}
 	}()
 
 	// Copy from WebSocket to PTY (browser input -> terminal)
 	go func() {
-		io.Copy(currentPTY, ws)
-		done <- true
+		buf := make([]byte, 32*1024)
+		for {
+			n, err := ws.Read(buf)
+			if n > 0 {
+				if _, writeErr := currentPTY.Write(buf[:n]); writeErr != nil {
+					log.Printf("Error writing to PTY: %v", writeErr)
+					done <- true
+					return
+				}
+			}
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("Error reading from WebSocket: %v", err)
+				} else {
+					log.Printf("WebSocket closed (EOF)")
+				}
+				done <- true
+				return
+			}
+		}
 	}()
 
 	// Wait for either copy to finish
 	<-done
+	log.Printf("One of the copy operations finished, closing WebSocket")
 }

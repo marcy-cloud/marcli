@@ -7,20 +7,15 @@
     <link rel="stylesheet" href="/static/xterm.css">
     <link rel="stylesheet" href="/static/style.css">
     <script src="/static/htmx.min.js"></script>
-    <script src="/static/alpine.js" defer></script>
-</head>
-<body>
-    <div x-data="terminal()" class="container">
-        <div id="terminal" class="terminal-container"></div>
-    </div>
-
     <script src="/static/xterm.js"></script>
     <script>
+        // Define terminal function before Alpine loads
         function terminal() {
-            return {
+            const data = {
                 term: null,
                 socket: null,
                 init() {
+                    console.log('Terminal init called');
                     // Initialize xterm.js terminal
                     this.term = new Terminal({
                         cursorBlink: true,
@@ -29,7 +24,13 @@
                     });
 
                     // Open terminal in the container
-                    this.term.open(document.getElementById('terminal'));
+                    const termElement = document.getElementById('terminal');
+                    if (!termElement) {
+                        console.error('Terminal element not found');
+                        return;
+                    }
+                    this.term.open(termElement);
+                    console.log('Terminal opened');
 
                     // Connect to WebSocket
                     this.connect();
@@ -101,8 +102,54 @@
                         this.term.resize(cols, rows);
                     }
                 }
-            }
+            };
+            return data;
         }
+    </script>
+</head>
+<body>
+    <div x-data="terminal()" class="container">
+        <div id="terminal" class="terminal-container"></div>
+    </div>
+    <script src="/static/alpine.js"></script>
+    <script>
+        // Wait for Alpine to initialize, then call init
+        (function() {
+            function initializeTerminal() {
+                const container = document.querySelector('[x-data]');
+                if (container && container.__x && container.__x.$data) {
+                    const data = container.__x.$data;
+                    if (typeof data.init === 'function' && !data.term) {
+                        console.log('Auto-initializing terminal...');
+                        data.init();
+                        return true;
+                    }
+                }
+                return false;
+            }
+            
+            // Try immediately if Alpine is already ready
+            if (typeof Alpine !== 'undefined' && document.readyState === 'complete') {
+                setTimeout(initializeTerminal, 100);
+            }
+            
+            // Also try on DOMContentLoaded
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    setTimeout(initializeTerminal, 200);
+                });
+            }
+            
+            // Poll as fallback
+            let attempts = 0;
+            const maxAttempts = 30;
+            const tryInit = setInterval(() => {
+                attempts++;
+                if (initializeTerminal() || attempts >= maxAttempts) {
+                    clearInterval(tryInit);
+                }
+            }, 150);
+        })();
     </script>
 </body>
 </html>

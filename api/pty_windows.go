@@ -1,5 +1,5 @@
-//go:build !windows
-// +build !windows
+//go:build windows
+// +build windows
 
 package api
 
@@ -10,12 +10,12 @@ import (
 	"os/exec"
 	"sync"
 
-	"github.com/creack/pty"
+	"github.com/UserExistsError/conpty"
 )
 
-// PTYManager manages a single PTY instance
+// PTYManager manages a single PTY instance on Windows using ConPTY
 type PTYManager struct {
-	ptmx   *os.File
+	cpty   *conpty.ConPty
 	cmd    *exec.Cmd
 	mu     sync.Mutex
 	closed bool
@@ -32,7 +32,7 @@ func (p *PTYManager) Start() error {
 	defer p.mu.Unlock()
 
 	// Close existing PTY if any
-	if p.ptmx != nil {
+	if p.cpty != nil {
 		p.closeLocked()
 	}
 
@@ -42,23 +42,17 @@ func (p *PTYManager) Start() error {
 		return err
 	}
 
-	// Create command to run marcli with --stay-alive flag
-	// This ensures the TUI stays open after commands
-	p.cmd = exec.Command(execPath, "--stay-alive")
+	// Create command line with --stay-alive flag
+	commandLine := fmt.Sprintf(`"%s" --stay-alive`, execPath)
 
-	// Start the command with a PTY
-	ptmx, err := pty.Start(p.cmd)
+	// Start the command with ConPTY
+	cpty, err := conpty.Start(commandLine)
 	if err != nil {
-		return err
+		return fmt.Errorf("unsupported: %w", err)
 	}
 
-	p.ptmx = ptmx
+	p.cpty = cpty
 	p.closed = false
-
-	// Check if process started successfully
-	if p.cmd.Process == nil {
-		return fmt.Errorf("process did not start")
-	}
 
 	return nil
 }
@@ -68,25 +62,25 @@ func (p *PTYManager) Write(data []byte) (int, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.closed || p.ptmx == nil {
+	if p.closed || p.cpty == nil {
 		return 0, io.EOF
 	}
 
-	return p.ptmx.Write(data)
+	return p.cpty.Write(data)
 }
 
 // Read reads data from the PTY stdout
 func (p *PTYManager) Read(data []byte) (int, error) {
 	p.mu.Lock()
-	ptmx := p.ptmx
+	cpty := p.cpty
 	closed := p.closed
 	p.mu.Unlock()
 
-	if closed || ptmx == nil {
+	if closed || cpty == nil {
 		return 0, io.EOF
 	}
 
-	return ptmx.Read(data)
+	return cpty.Read(data)
 }
 
 // Resize resizes the PTY
@@ -94,16 +88,11 @@ func (p *PTYManager) Resize(cols, rows uint16) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.closed || p.ptmx == nil {
+	if p.closed || p.cpty == nil {
 		return io.EOF
 	}
 
-	size := &pty.Winsize{
-		Rows: rows,
-		Cols: cols,
-	}
-
-	return pty.Setsize(p.ptmx, size)
+	return p.cpty.Resize(int(cols), int(rows))
 }
 
 // Close closes the PTY and kills the command
@@ -120,15 +109,9 @@ func (p *PTYManager) closeLocked() error {
 
 	p.closed = true
 
-	if p.ptmx != nil {
-		p.ptmx.Close()
-		p.ptmx = nil
-	}
-
-	if p.cmd != nil && p.cmd.Process != nil {
-		p.cmd.Process.Kill()
-		p.cmd.Wait()
-		p.cmd = nil
+	if p.cpty != nil {
+		p.cpty.Close()
+		p.cpty = nil
 	}
 
 	return nil
@@ -140,3 +123,4 @@ func (p *PTYManager) IsClosed() bool {
 	defer p.mu.Unlock()
 	return p.closed
 }
+
