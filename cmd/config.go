@@ -9,8 +9,9 @@ import (
 
 // Config represents the application configuration - keeping track of our version and builds! 💕
 type Config struct {
-	Version string `yaml:"version"` // Our cute version number! ✨
-	Build   int    `yaml:"build"`   // Build counter - we're so organized! 🎀
+	Version         string `yaml:"version"`         // Our cute version number! ✨
+	Build           int    `yaml:"build"`           // Build counter - we're so organized! 🎀
+	ExitAfterCommand bool  `yaml:"exitAfterCommand"` // Whether to exit TUI after running a command or return to menu
 }
 
 const configFile = "config.yml" // Where we keep our config, obviously! 💖

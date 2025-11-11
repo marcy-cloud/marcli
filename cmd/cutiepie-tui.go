@@ -178,35 +178,94 @@ func (m *tuiModel) GetSelectedCommand() *commandItem {
 	return m.selectedCommand
 }
 
+// waitKeyModel is a simple model that waits for any keypress
+type waitKeyModel struct {
+	message string
+}
+
+func (m waitKeyModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m waitKeyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if keyMsg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		// Any other key continues
+		return m, tea.Quit
+	}
+	return m, nil
+}
+
+func (m waitKeyModel) View() string {
+	return "\n" + m.message + "\n"
+}
+
 // RunCutiepieTUI starts the interactive cutiepie TUI - so cute and interactive! 🎀
 func RunCutiepieTUI() error {
-	model := initialTuiModel()
-	p := tea.NewProgram(&model, tea.WithAltScreen())
-	finalModel, err := p.Run()
+	// Load config to check ExitAfterCommand setting
+	config, err := LoadConfig()
 	if err != nil {
-		return err
+		// If config doesn't exist or can't be loaded, default to true (exit after command)
+		config = &Config{
+			ExitAfterCommand: true,
+		}
 	}
 
-	// Run the selected command only if not cancelled
-	if tuiModel, ok := finalModel.(*tuiModel); ok {
-		// Don't run command if user pressed Ctrl+C
-		if tuiModel.cancelled {
+	// Default to true if not set (backward compatibility)
+	exitAfterCommand := true
+	if config != nil {
+		exitAfterCommand = config.ExitAfterCommand
+	}
+
+	// Loop if ExitAfterCommand is false
+	for {
+		model := initialTuiModel()
+		p := tea.NewProgram(&model, tea.WithAltScreen())
+		finalModel, err := p.Run()
+		if err != nil {
+			return err
+		}
+
+		// Run the selected command only if not cancelled
+		if tuiModel, ok := finalModel.(*tuiModel); ok {
+			// Don't run command if user pressed Ctrl+C
+			if tuiModel.cancelled {
+				return nil
+			}
+			cmd := tuiModel.GetSelectedCommand()
+			if cmd != nil {
+				ctx := context.Background()
+				out, err := cmd.run(ctx)
+				if err != nil {
+					return err
+				}
+				if out != "" {
+					fmt.Print(out)
+				}
+
+				// If ExitAfterCommand is false, wait for keypress and loop
+				if !exitAfterCommand {
+					waitModel := waitKeyModel{
+						message: "Press any key to continue...",
+					}
+					waitProg := tea.NewProgram(&waitModel, tea.WithAltScreen())
+					_, err := waitProg.Run()
+					if err != nil {
+						return err
+					}
+					// Continue loop to show menu again
+					continue
+				}
+			}
+		}
+
+		// If ExitAfterCommand is true, exit after running command
+		if exitAfterCommand {
 			return nil
 		}
-		cmd := tuiModel.GetSelectedCommand()
-		if cmd != nil {
-			ctx := context.Background()
-			out, err := cmd.run(ctx)
-			if err != nil {
-				return err
-			}
-			if out != "" {
-				fmt.Print(out)
-			}
-		}
 	}
-
-	return nil
 }
 
 // RunCutiepieTUICommand is a wrapper that matches the command registry signature - so organized! ✨

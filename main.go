@@ -22,6 +22,7 @@ func initCommands() {
 	commandRegistry["version"] = cmd.RunVersion
 	commandRegistry["mega-combine"] = cmd.RunMegaCombine
 	commandRegistry["cutiepie"] = cmd.RunCutiepieTUICommand
+	commandRegistry["cutiepie-tty"] = cmd.RunCutiepieTTY
 }
 
 func main() {
@@ -63,6 +64,17 @@ func main() {
 		}
 		if cmdName == "build" && len(args) > 1 && args[1] == "--fast" {
 			ctx = context.WithValue(ctx, "buildFastMode", true)
+		}
+		if cmdName == "cutiepie-tty" {
+			for i := 1; i < len(args); i++ {
+				if args[i] == "--port" && i+1 < len(args) {
+					var port int
+					if _, err := fmt.Sscanf(args[i+1], "%d", &port); err == nil {
+						ctx = context.WithValue(ctx, "port", port)
+					}
+					i++ // Skip the next argument since we consumed it
+				}
+			}
 		}
 
 		out, err := cmd(ctx)

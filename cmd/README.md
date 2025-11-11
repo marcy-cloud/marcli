@@ -6,6 +6,12 @@ We keep this list updated as we add new commands - so organized! 💅
 
 ## Command List (Newest First) 🎀
 
+### cutiepie-tty 🌐
+**File:** `cutiepie-tty.go`  
+**Description:** Serves a web-based terminal interface for remote access to cutiepie-tui - so accessible! 🌐  
+**Usage:** `marcli cutiepie-tty [--port 8080]`  
+**Details:** Starts an HTTP server that serves a web terminal using HTMx, Alpine.js, and xterm.js. The terminal connects to a PTY running cutiepie-tui, allowing remote access via browser. Default port is 8080.
+
 ### version ✨
 **File:** `version.go`  
 **Description:** Shows the current version and build number - so organized! 💖  

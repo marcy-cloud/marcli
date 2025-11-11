@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cutiepie TTY</title>
+    <link rel="stylesheet" href="/static/xterm.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/htmx.min.js"></script>
+    <script src="/static/alpine.js" defer></script>
+</head>
+<body>
+    <div x-data="terminal()" class="container">
+        <div id="terminal" class="terminal-container"></div>
+    </div>
+
+    <script src="/static/xterm.js"></script>
+    <script>
+        function terminal() {
+            return {
+                term: null,
+                socket: null,
+                init() {
+                    // Initialize xterm.js terminal
+                    this.term = new Terminal({
+                        cursorBlink: true,
+                        fontSize: 14,
+                        fontFamily: 'Consolas, "Courier New", monospace'
+                    });
+
+                    // Open terminal in the container
+                    this.term.open(document.getElementById('terminal'));
+
+                    // Connect to WebSocket
+                    this.connect();
+
+                    // Handle window resize
+                    window.addEventListener('resize', () => {
+                        this.fitTerminal();
+                    });
+
+                    // Initial fit
+                    this.fitTerminal();
+                },
+                connect() {
+                    // Determine WebSocket URL
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+                    this.socket = new WebSocket(wsUrl);
+
+                    this.socket.onopen = () => {
+                        console.log('WebSocket connected');
+                        this.fitTerminal();
+                    };
+
+                    this.socket.onmessage = (event) => {
+                        // Write data to terminal
+                        if (this.term) {
+                            this.term.write(event.data);
+                        }
+                    };
+
+                    this.socket.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                    };
+
+                    this.socket.onclose = () => {
+                        console.log('WebSocket closed');
+                        // Optionally reconnect after a delay
+                        setTimeout(() => {
+                            if (this.term) {
+                                this.connect();
+                            }
+                        }, 1000);
+                    };
+
+                    // Send terminal input to WebSocket
+                    if (this.term) {
+                        this.term.onData((data) => {
+                            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                                this.socket.send(data);
+                            }
+                        });
+
+                        // Handle terminal resize - resize PTY when terminal is resized
+                        this.term.onResize((size) => {
+                            // Note: We can't easily send resize messages through the current
+                            // WebSocket protocol without changing it. For now, the PTY will
+                            // use the initial size. This can be improved later with a proper
+                            // protocol for resize messages.
+                        });
+                    }
+                },
+                fitTerminal() {
+                    if (this.term) {
+                        // Fit terminal to container
+                        const container = document.getElementById('terminal');
+                        const cols = Math.max(80, Math.floor(container.clientWidth / 8.4)); // Approximate character width
+                        const rows = Math.max(24, Math.floor(container.clientHeight / 17)); // Approximate line height
+                        this.term.resize(cols, rows);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
