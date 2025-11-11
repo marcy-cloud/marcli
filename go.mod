@@ -8,8 +8,8 @@ require (
 	github.com/charmbracelet/bubbletea v0.26.6
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/log v0.4.2
+	github.com/coder/websocket v1.8.14
 	github.com/creack/pty v1.1.24
-	golang.org/x/net v0.46.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

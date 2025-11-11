@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -8,7 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"golang.org/x/net/websocket"
+	"github.com/coder/websocket"
 )
 
 var (
@@ -32,15 +33,22 @@ func StartServer(port int) error {
 	})
 
 	// WebSocket endpoint for terminal I/O
-	http.Handle("/ws", websocket.Handler(handleWebSocket))
+	http.HandleFunc("/ws", handleWebSocket)
 
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("Starting server on %s", addr)
 	return http.ListenAndServe(addr, nil)
 }
 
-func handleWebSocket(ws *websocket.Conn) {
-	defer ws.Close()
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Accept the WebSocket connection
+	conn, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		log.Printf("Failed to accept WebSocket connection: %v", err)
+		return
+	}
+	defer conn.CloseNow()
+
 	log.Printf("WebSocket connection established")
 
 	// Close existing PTY and create new one
@@ -75,6 +83,7 @@ func handleWebSocket(ws *websocket.Conn) {
 
 	// Channel to signal when copying is done
 	done := make(chan bool, 2)
+	ctx := context.Background()
 
 	// Copy from PTY to WebSocket (terminal output -> browser)
 	go func() {
@@ -82,7 +91,7 @@ func handleWebSocket(ws *websocket.Conn) {
 		for {
 			n, err := currentPTY.Read(buf)
 			if n > 0 {
-				if _, writeErr := ws.Write(buf[:n]); writeErr != nil {
+				if writeErr := conn.Write(ctx, websocket.MessageText, buf[:n]); writeErr != nil {
 					log.Printf("Error writing to WebSocket: %v", writeErr)
 					done <- true
 					return
@@ -102,25 +111,26 @@ func handleWebSocket(ws *websocket.Conn) {
 
 	// Copy from WebSocket to PTY (browser input -> terminal)
 	go func() {
-		buf := make([]byte, 32*1024)
 		for {
-			n, err := ws.Read(buf)
-			if n > 0 {
-				if _, writeErr := currentPTY.Write(buf[:n]); writeErr != nil {
+			typ, buf, err := conn.Read(ctx)
+			if len(buf) > 0 {
+				if _, writeErr := currentPTY.Write(buf); writeErr != nil {
 					log.Printf("Error writing to PTY: %v", writeErr)
 					done <- true
 					return
 				}
 			}
 			if err != nil {
-				if err != io.EOF {
-					log.Printf("Error reading from WebSocket: %v", err)
+				// Check if it's a close error
+				if err == io.EOF || websocket.CloseStatus(err) != -1 {
+					log.Printf("WebSocket closed")
 				} else {
-					log.Printf("WebSocket closed (EOF)")
+					log.Printf("Error reading from WebSocket: %v", err)
 				}
 				done <- true
 				return
 			}
+			_ = typ // Message type (binary/text), we handle both
 		}
 	}()
 

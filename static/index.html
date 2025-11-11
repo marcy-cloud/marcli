@@ -58,7 +58,22 @@
                     this.socket.onmessage = (event) => {
                         // Write data to terminal
                         if (this.term) {
-                            this.term.write(event.data);
+                            // Handle both text and binary data
+                            let data = event.data;
+                            if (data instanceof Blob) {
+                                // Convert Blob to text
+                                data.text().then(text => {
+                                    this.term.write(text);
+                                });
+                            } else if (data instanceof ArrayBuffer) {
+                                // Convert ArrayBuffer to text
+                                const decoder = new TextDecoder();
+                                data = decoder.decode(data);
+                                this.term.write(data);
+                            } else {
+                                // Already text
+                                this.term.write(data);
+                            }
                         }
                     };
 
