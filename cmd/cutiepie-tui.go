@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"runtime"
+	"time"
 
 	"marcli/ui"
 
@@ -179,28 +182,34 @@ func (m *tuiModel) GetSelectedCommand() *commandItem {
 	return m.selectedCommand
 }
 
-// waitKeyModel is a simple model that waits for any keypress
-type waitKeyModel struct {
-	message string
-}
+// waitForKeypress waits for a keypress without using alt screen
+func waitForKeypress() error {
+	// Small delay to ensure TUI has fully exited and terminal is ready
+	time.Sleep(50 * time.Millisecond)
 
-func (m waitKeyModel) Init() tea.Cmd {
-	return nil
-}
+	fmt.Print("\n\nPress Enter (maybe twice honey) to continue...")
 
-func (m waitKeyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if keyMsg.String() == "ctrl+c" {
-			return m, tea.Quit
+	// Create a fresh reader to avoid any buffered input issues
+	reader := bufio.NewReader(os.Stdin)
+
+	// Try to peek and discard any immediate newline that might be leftover
+	if reader.Buffered() > 0 {
+		peeked, _ := reader.Peek(1)
+		if len(peeked) > 0 && peeked[0] == '\n' {
+			reader.ReadByte() // Discard the leftover newline
 		}
-		// Any other key continues
-		return m, tea.Quit
 	}
-	return m, nil
-}
 
-func (m waitKeyModel) View() string {
-	return "\n" + m.message + "\n"
+	// Read until newline (Enter key on Windows)
+	// This will wait for a fresh Enter press
+	_, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+
+	// Clear the continue message and add a newline
+	fmt.Print("\r" + "                                         " + "\r\n")
+	return nil
 }
 
 // RunCutiepieTUI starts the interactive cutiepie TUI - so cute and interactive! 🎀
@@ -254,12 +263,7 @@ func RunCutiepieTUI(stayAliveOverride *bool) error {
 
 				// If StayAlive is true, wait for keypress and loop
 				if stayAlive {
-					waitModel := waitKeyModel{
-						message: "Press any key to continue...",
-					}
-					waitProg := tea.NewProgram(&waitModel, tea.WithAltScreen())
-					_, err := waitProg.Run()
-					if err != nil {
+					if err := waitForKeypress(); err != nil {
 						return err
 					}
 					// Continue loop to show menu again
