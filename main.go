@@ -71,12 +71,9 @@ func main() {
 		if cmdName == "cutiepie" {
 			for i := 1; i < len(args); i++ {
 				switch args[i] {
-				case "--exit":
-					// --exit flag sets exitAfterCommand to true
-					ctx = context.WithValue(ctx, "exitAfterCommand", true)
-				case "--no-exit":
-					// --no-exit flag sets exitAfterCommand to false
-					ctx = context.WithValue(ctx, "exitAfterCommand", false)
+				case "--stay-alive":
+					// --stay-alive flag sets stayAlive to true (stay in TUI)
+					ctx = context.WithValue(ctx, "stayAlive", true)
 				}
 			}
 		}

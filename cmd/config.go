@@ -9,9 +9,9 @@ import (
 
 // Config represents the application configuration - keeping track of our version and builds! 💕
 type Config struct {
-	Version         string `yaml:"version"`         // Our cute version number! ✨
-	Build           int    `yaml:"build"`           // Build counter - we're so organized! 🎀
-	ExitAfterCommand bool  `yaml:"exitAfterCommand"` // Whether to exit TUI after running a command or return to menu
+	Version   string `yaml:"version"`   // Our cute version number! ✨
+	Build     int    `yaml:"build"`     // Build counter - we're so organized! 🎀
+	StayAlive bool   `yaml:"stayAlive"` // Whether to stay in TUI after running a command (false = exit, true = stay)
 }
 
 const configFile = "config.yml" // Where we keep our config, obviously! 💖
@@ -68,4 +68,3 @@ func GetVersion() (string, error) {
 	}
 	return fmt.Sprintf("%s (build %d)", config.Version, config.Build), nil
 }
-

@@ -6,15 +6,16 @@ import (
 	"runtime"
 
 	"marcli/ui"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 // commandItem represents a command in the menu
 type commandItem struct {
-	name  string // canonical CLI name
-	title string
-	desc  string
-	run   func(context.Context) (string, error)
+	name     string // canonical CLI name
+	title    string
+	desc     string
+	run      func(context.Context) (string, error)
 	selected bool
 }
 
@@ -36,11 +37,11 @@ func (i commandItem) DisplayText() string {
 
 // tuiModel manages the main TUI menu
 type tuiModel struct {
-	listModel *ui.Model
-	items     []*commandItem
+	listModel       *ui.Model
+	items           []*commandItem
 	selectedCommand *commandItem
-	quitting  bool
-	cancelled bool // True if user pressed Ctrl+C
+	quitting        bool
+	cancelled       bool // True if user pressed Ctrl+C
 }
 
 func initialTuiModel() tuiModel {
@@ -203,29 +204,29 @@ func (m waitKeyModel) View() string {
 }
 
 // RunCutiepieTUI starts the interactive cutiepie TUI - so cute and interactive! 🎀
-// exitAfterCommandOverride can be used to override the config setting (nil means use config)
-func RunCutiepieTUI(exitAfterCommandOverride *bool) error {
-	// Load config to check ExitAfterCommand setting
+// stayAliveOverride can be used to override the config setting (nil means use config)
+func RunCutiepieTUI(stayAliveOverride *bool) error {
+	// Load config to check StayAlive setting
 	config, err := LoadConfig()
 	if err != nil {
-		// If config doesn't exist or can't be loaded, default to true (exit after command)
+		// If config doesn't exist or can't be loaded, default to false (exit after command)
 		config = &Config{
-			ExitAfterCommand: true,
+			StayAlive: false,
 		}
 	}
 
-	// Default to true if not set (backward compatibility)
-	exitAfterCommand := true
+	// Default to false if not set (exit after command)
+	stayAlive := false
 	if config != nil {
-		exitAfterCommand = config.ExitAfterCommand
+		stayAlive = config.StayAlive
 	}
 
 	// Flag override wins if set
-	if exitAfterCommandOverride != nil {
-		exitAfterCommand = *exitAfterCommandOverride
+	if stayAliveOverride != nil {
+		stayAlive = *stayAliveOverride
 	}
 
-	// Loop if ExitAfterCommand is false
+	// Loop if StayAlive is true
 	for {
 		model := initialTuiModel()
 		p := tea.NewProgram(&model, tea.WithAltScreen())
@@ -251,8 +252,8 @@ func RunCutiepieTUI(exitAfterCommandOverride *bool) error {
 					fmt.Print(out)
 				}
 
-				// If ExitAfterCommand is false, wait for keypress and loop
-				if !exitAfterCommand {
+				// If StayAlive is true, wait for keypress and loop
+				if stayAlive {
 					waitModel := waitKeyModel{
 						message: "Press any key to continue...",
 					}
@@ -267,8 +268,8 @@ func RunCutiepieTUI(exitAfterCommandOverride *bool) error {
 			}
 		}
 
-		// If ExitAfterCommand is true, exit after running command
-		if exitAfterCommand {
+		// If StayAlive is false, exit after running command
+		if !stayAlive {
 			return nil
 		}
 	}
@@ -276,15 +277,15 @@ func RunCutiepieTUI(exitAfterCommandOverride *bool) error {
 
 // RunCutiepieTUICommand is a wrapper that matches the command registry signature - so organized! ✨
 func RunCutiepieTUICommand(ctx context.Context) (string, error) {
-	// Check for --exit flag override
-	var exitOverride *bool
-	if ctx.Value("exitAfterCommand") != nil {
-		if val, ok := ctx.Value("exitAfterCommand").(bool); ok {
-			exitOverride = &val
+	// Check for --stay-alive flag override
+	var stayAliveOverride *bool
+	if ctx.Value("stayAlive") != nil {
+		if val, ok := ctx.Value("stayAlive").(bool); ok {
+			stayAliveOverride = &val
 		}
 	}
 
-	err := RunCutiepieTUI(exitOverride)
+	err := RunCutiepieTUI(stayAliveOverride)
 	if err != nil {
 		return "", err
 	}
