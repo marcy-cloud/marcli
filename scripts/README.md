@@ -19,4 +19,5 @@ bash scripts/build.sh
 ## What's Inside 🎀
 
 - `build.sh` 💪 - Builds everything for all platforms and installs it to your PATH (so fancy!)
+- `update-static.sh` / `update-static.bat` 🌐 - Downloads and updates static JavaScript libraries (HTMx, Alpine.js, xterm.js) from CDN for the web terminal. Automatically run during `build` unless using `--fast` flag.
 
