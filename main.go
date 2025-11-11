@@ -40,6 +40,18 @@ func main() {
 			cmdName = "version"
 		}
 
+		// Check if first arg is a flag for TUI mode (--stay-alive)
+		if cmdName == "--stay-alive" {
+			// Run TUI mode with stay-alive flag
+			ctx := context.Background()
+			ctx = context.WithValue(ctx, "stayAlive", true)
+			_, err := cmd.RunCutiepieTUICommand(ctx)
+			if err != nil {
+				logger.Fatal("error", "err", err)
+			}
+			return
+		}
+
 		cmd, exists := commandRegistry[cmdName]
 		if !exists {
 			logger.Fatal("unknown command", "command", cmdName)
