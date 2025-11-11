@@ -50,20 +50,35 @@ func main() {
 		// Handle flags for specific commands
 		if cmdName == "mega-combine" {
 			for i := 1; i < len(args); i++ {
-				if args[i] == "--test" {
+				switch args[i] {
+				case "--test":
 					ctx = context.WithValue(ctx, "megaCombineTestMode", true)
-				} else if args[i] == "--out" && i+1 < len(args) {
-					ctx = context.WithValue(ctx, "megaCombineOutput", args[i+1])
-					i++ // Skip the next argument since we consumed it
-				} else if args[i] == "--waytoobig" {
+				case "--out":
+					if i+1 < len(args) {
+						ctx = context.WithValue(ctx, "megaCombineOutput", args[i+1])
+						i++ // Skip the next argument since we consumed it
+					}
+				case "--waytoobig":
 					ctx = context.WithValue(ctx, "megaCombineWayTooBig", true)
-				} else if args[i] == "--slowbutsmall" {
+				case "--slowbutsmall":
 					ctx = context.WithValue(ctx, "megaCombineSlowButSmall", true)
 				}
 			}
 		}
 		if cmdName == "build" && len(args) > 1 && args[1] == "--fast" {
 			ctx = context.WithValue(ctx, "buildFastMode", true)
+		}
+		if cmdName == "cutiepie" {
+			for i := 1; i < len(args); i++ {
+				switch args[i] {
+				case "--exit":
+					// --exit flag sets exitAfterCommand to true
+					ctx = context.WithValue(ctx, "exitAfterCommand", true)
+				case "--no-exit":
+					// --no-exit flag sets exitAfterCommand to false
+					ctx = context.WithValue(ctx, "exitAfterCommand", false)
+				}
+			}
 		}
 		if cmdName == "cutiepie-tty" {
 			for i := 1; i < len(args); i++ {
@@ -86,7 +101,7 @@ func main() {
 	}
 
 	// TUI mode: no args, show the cutiepie interactive menu (default) 🎀
-	if err := cmd.RunCutiepieTUI(); err != nil {
+	if err := cmd.RunCutiepieTUI(nil); err != nil {
 		logger.Fatal("error", "err", err)
 	}
 }

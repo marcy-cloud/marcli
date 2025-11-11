@@ -17,6 +17,14 @@ func RunBuild(ctx context.Context) (string, error) {
 	// Check if fast mode is enabled
 	fastMode := ctx.Value("buildFastMode") == true
 
+	// Update static JS files unless in fast mode
+	if !fastMode {
+		if err := updateStaticFiles(); err != nil {
+			// Don't fail the build if static update fails, just log it
+			fmt.Printf("Warning: Failed to update static files: %v\n", err)
+		}
+	}
+
 	// Increment build number - we're so organized! 🎀
 	if err := IncrementBuild(); err != nil {
 		return "", fmt.Errorf("failed to increment build number: %w", err)
@@ -265,4 +273,20 @@ func addToUnixPath(dir string) error {
 	}
 
 	return fmt.Errorf("could not find shell profile to modify")
+}
+
+// updateStaticFiles runs the update-static script to download latest JS libraries
+func updateStaticFiles() error {
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		// Use cmd.exe to run the batch file
+		cmd = exec.Command("cmd.exe", "/c", "scripts\\update-static.bat")
+	} else {
+		cmd = exec.Command("bash", "scripts/update-static.sh")
+	}
+	
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	return cmd.Run()
 }

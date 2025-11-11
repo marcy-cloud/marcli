@@ -203,7 +203,8 @@ func (m waitKeyModel) View() string {
 }
 
 // RunCutiepieTUI starts the interactive cutiepie TUI - so cute and interactive! 🎀
-func RunCutiepieTUI() error {
+// exitAfterCommandOverride can be used to override the config setting (nil means use config)
+func RunCutiepieTUI(exitAfterCommandOverride *bool) error {
 	// Load config to check ExitAfterCommand setting
 	config, err := LoadConfig()
 	if err != nil {
@@ -217,6 +218,11 @@ func RunCutiepieTUI() error {
 	exitAfterCommand := true
 	if config != nil {
 		exitAfterCommand = config.ExitAfterCommand
+	}
+
+	// Flag override wins if set
+	if exitAfterCommandOverride != nil {
+		exitAfterCommand = *exitAfterCommandOverride
 	}
 
 	// Loop if ExitAfterCommand is false
@@ -270,7 +276,15 @@ func RunCutiepieTUI() error {
 
 // RunCutiepieTUICommand is a wrapper that matches the command registry signature - so organized! ✨
 func RunCutiepieTUICommand(ctx context.Context) (string, error) {
-	err := RunCutiepieTUI()
+	// Check for --exit flag override
+	var exitOverride *bool
+	if ctx.Value("exitAfterCommand") != nil {
+		if val, ok := ctx.Value("exitAfterCommand").(bool); ok {
+			exitOverride = &val
+		}
+	}
+
+	err := RunCutiepieTUI(exitOverride)
 	if err != nil {
 		return "", err
 	}
