@@ -18,6 +18,10 @@ var (
 	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
 	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
+	borderStyle       = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("129")).
+				Padding(1, 2)
 )
 
 // SelectableItem is the interface that items must implement to be used in a selectable list
@@ -174,7 +178,8 @@ func (m *Model) View() string {
 	if m.quitting {
 		return ""
 	}
-	return "\n" + m.list.View()
+	listView := m.list.View()
+	return "\n" + borderStyle.Render(listView)
 }
 
 // GetSelectedIndices returns the indices of all selected items

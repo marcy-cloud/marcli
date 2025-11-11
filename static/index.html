@@ -32,6 +32,26 @@
                     this.term.open(termElement);
                     console.log('Terminal opened');
 
+                    // Fix overflow issues by setting styles directly
+                    const xtermElement = termElement.querySelector('.xterm');
+                    if (xtermElement) {
+                        xtermElement.style.overflow = 'hidden';
+                        xtermElement.style.maxWidth = '100%';
+                        xtermElement.style.width = '100%';
+                        xtermElement.style.boxSizing = 'border-box';
+                    }
+                    const viewport = termElement.querySelector('.xterm-viewport');
+                    if (viewport) {
+                        viewport.style.overflow = 'hidden';
+                        viewport.style.maxWidth = '100%';
+                    }
+                    const screen = termElement.querySelector('.xterm-screen');
+                    if (screen) {
+                        screen.style.overflow = 'hidden';
+                        screen.style.maxWidth = '100%';
+                        screen.style.width = '100%';
+                    }
+
                     // Connect to WebSocket
                     this.connect();
 
@@ -42,6 +62,14 @@
 
                     // Initial fit
                     this.fitTerminal();
+                    
+                    // Send initial terminal size to server after a short delay
+                    setTimeout(() => {
+                        if (this.term && this.socket && this.socket.readyState === WebSocket.OPEN) {
+                            // Send resize info (we'll implement proper resize protocol later)
+                            // For now, the server uses a larger default size
+                        }
+                    }, 500);
                 },
                 connect() {
                     // Determine WebSocket URL
@@ -110,11 +138,34 @@
                 },
                 fitTerminal() {
                     if (this.term) {
-                        // Fit terminal to container
+                        // Fit terminal to container, accounting for padding
                         const container = document.getElementById('terminal');
-                        const cols = Math.max(80, Math.floor(container.clientWidth / 8.4)); // Approximate character width
-                        const rows = Math.max(24, Math.floor(container.clientHeight / 17)); // Approximate line height
+                        // Account for padding (10px on each side = 20px total)
+                        const availableWidth = container.clientWidth - 20;
+                        const availableHeight = container.clientHeight - 20;
+                        const cols = Math.max(80, Math.floor(availableWidth / 8.4)); // Approximate character width
+                        const rows = Math.max(24, Math.floor(availableHeight / 17)); // Approximate line height
                         this.term.resize(cols, rows);
+                        
+                        // Re-apply overflow fixes after resize
+                        const xtermElement = container.querySelector('.xterm');
+                        if (xtermElement) {
+                            xtermElement.style.overflow = 'hidden';
+                            xtermElement.style.maxWidth = '100%';
+                            xtermElement.style.width = '100%';
+                            xtermElement.style.boxSizing = 'border-box';
+                        }
+                        const viewport = container.querySelector('.xterm-viewport');
+                        if (viewport) {
+                            viewport.style.overflow = 'hidden';
+                            viewport.style.maxWidth = '100%';
+                        }
+                        const screen = container.querySelector('.xterm-screen');
+                        if (screen) {
+                            screen.style.overflow = 'hidden';
+                            screen.style.maxWidth = '100%';
+                            screen.style.width = '100%';
+                        }
                     }
                 }
             };

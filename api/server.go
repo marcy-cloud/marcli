@@ -64,8 +64,10 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("PTY started successfully")
 
-	// Set initial terminal size (80x24 is a common default)
-	if err := currentPTY.Resize(80, 24); err != nil {
+	// Set initial terminal size - use a reasonable default that matches common browser sizes
+	// We'll resize it properly once the client sends the actual terminal size
+	// For now, use a larger default to prevent overflow
+	if err := currentPTY.Resize(120, 30); err != nil {
 		log.Printf("Failed to resize PTY: %v", err)
 	}
 	ptyMutex.Unlock()
